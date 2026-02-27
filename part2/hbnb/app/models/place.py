@@ -8,9 +8,9 @@ class Place(BaseModel):
         self.price = price
         self.latitude = latitude
         self.longitude = longitude
-        self.owner = owner # Instance de User (le propriétaire)
+        self.owner = owner # Instance de User ADMIN
         self.reviews = []  # Liste des avis liés à cette place
-        self.amenities = [] # Liste des équipements (instances d'Amenity)
+        self.amenities = [] # Liste des équipements (Amenity)
         self.validate()
 
     def validate(self):
