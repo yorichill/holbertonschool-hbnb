@@ -21,13 +21,10 @@ class Amenity(BaseModel):
         """
             Convert Amenity to dictionary
         """
-        return {
-            'id': self.id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'name': self.name,
-            'description': self.description
-        }
+        amenity_dict = super().to_dict() # Start with base attributes (id, created_at, updated_at)
+        amenity_dict['name'] = self.name
+        amenity_dict['description'] = self.description
+        return amenity_dict
 
     @staticmethod
     def list_all():

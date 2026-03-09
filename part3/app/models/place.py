@@ -71,19 +71,16 @@ class Place(BaseModel):
         Convert Place to dictionary.
         Includes private coordinates and amenity IDs.
         """
-        return {
-            'id': self.id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'name': self.name,
-            'title': self.title,
-            'description': self.description,
-            'price': self.price,
-            'latitude': self._latitude,
-            'longitude': self._longitude,
-            'owner_id': self.owner_id,
-            'amenities': self.amenities
-        }
+        place_dict = super().to_dict() # Start with base attributes (id, created_at, updated_at)
+        place_dict['name'] = self.name
+        place_dict['title'] = self.title
+        place_dict['description'] = self.description
+        place_dict['price'] = self.price
+        place_dict['latitude'] = self.latitude
+        place_dict['longitude'] = self.longitude
+        place_dict['owner_id'] = self.owner_id
+        place_dict['amenities'] = self.amenities
+        return place_dict
 
     # ----------------- Static / Class Methods -----------------
     @staticmethod

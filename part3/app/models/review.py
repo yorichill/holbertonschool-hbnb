@@ -33,18 +33,13 @@ class Review(BaseModel):
             raise ValueError("Rating must be an integer between 1 and 5")
 
     def to_dict(self):
-        """
-            Convert Review to dictionary
-        """
-        return {
-            'id': self.id,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'text': self.text,
-            'rating': self.rating,
-            'user_id': self.user_id,
-            'place_id': self.place_id
-        }
+        """Convert Review to dictionary format for API responses."""
+        review_dict = super().to_dict() # Start with base attributes (id, created_at, updated_at)
+        review_dict['text'] = self.text
+        review_dict['rating'] = self.rating
+        review_dict['user_id'] = self.user_id
+        review_dict['place_id'] = self.place_id
+        return review_dict
 
     @staticmethod
     def list_by_place(place_id):

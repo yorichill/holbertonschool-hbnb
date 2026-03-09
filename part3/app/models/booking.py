@@ -16,8 +16,8 @@ class Booking(BaseModel):
     STATUS_CANCELLED = 'cancelled'
     VALID_STATUSES   = {STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED}
 
-    def __init__(self, place_id: str = '', user_id: str = '',
-                 check_in: str = '', check_out: str = '',
+    def __init__(self, place_id: str, user_id: str,
+                 check_in: str, check_out: str,
                  guests: int = 1, **kwargs):
         super().__init__(**kwargs)
 
