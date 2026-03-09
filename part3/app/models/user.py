@@ -17,7 +17,7 @@ class User(BaseModel):
         self.first_name = first_name
         self.last_name = last_name
         self.email = email
-        self.hash_password(password)
+        self.password = password  # This will be hashed by the setter
         self.is_admin = is_admin
 
     # ===================== FIRST NAME =====================
@@ -84,23 +84,23 @@ class User(BaseModel):
 
     @property
     def password(self):
-        """Getter for password (returns None for security reasons)"""
-        return None
+        """Get the hashed password (for internal use only)."""
+        return self._password
 
     @password.setter
-    def hash_password(self, password):
-        """Hashes the password before storing it."""
-        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
+    def password(self, value):
+        """Set the password, hashing it if it's not already hashed."""
+        if not value or len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        # Si la valeur ne semble pas être un hash bcrypt (commence par $2b$), on la hash
+        if not value.startswith('$2b$'):
+            self._password = bcrypt.generate_password_hash(value).decode('utf-8')
+        else:
+            self._password = value
 
     def verify_password(self, password):
-        """Verifies if the provided password matches the hashed password."""
-        return bcrypt.check_password_hash(self.password, password)
-
-    def validate_password(self):
-        """
-        Validate password strength.
-        """
-        return len(self._password) >= 8
+        """Verify a plaintext password against the stored hashed password."""
+        return bcrypt.check_password_hash(self._password, password)
 
     # ===================== SERIALIZATION =====================
 
@@ -109,14 +109,11 @@ class User(BaseModel):
         Convert User to dictionary.
         Excludes password for security reasons.
         """
-        user_dict = super().to_dict()
+        user_dict = super().to_dict() # Start with base attributes (id, created_at, updated_at)
         user_dict["first_name"] = self.first_name
         user_dict["last_name"] = self.last_name
         user_dict["email"] = self.email
         user_dict["is_admin"] = self.is_admin
-
-        # sécurité
-        user_dict.pop("_password", None)
         return user_dict
 
     # ===================== PLACEHOLDERS =====================
@@ -126,10 +123,8 @@ class User(BaseModel):
         pass
 
     def authenticate(self, password):
-        """
-        Authenticate user with password.
-        """
-        return self._password == password
+        """Authenticate the user with the provided password"""
+        return self.verify_password(password)
 
     def add_place(self, title, description, price, latitude, longitude):
         """Add a place for the user (to be implemented in Part3)"""
