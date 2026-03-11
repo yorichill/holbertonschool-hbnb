@@ -16,13 +16,14 @@ user_model = api.model('User', {
 
 @api.route('/')
 class UserList(Resource):
-    @api.expect(user_model, validate=True)  # ✅ AJOUT — manquait
-    @api.response(201, 'User created')
-    @api.response(400, 'Validation error')
+    @api.expect(user_model, validate=True)
+    @api.response(201, 'User successfully created')
+    @api.response(400, 'Email already exists')
+    @api.response(400, 'Invalid data')
     def post(self):
-        """Create a new user"""
+        """Register a new user"""
         try:
-            user = facade.create_user(api.payload)  # ✅ api.payload et non request.get_json()
+            user = facade.create_user(api.payload)
             return user.to_dict(), 201
         except ValueError as e:
             abort(400, message=str(e))
@@ -56,7 +57,6 @@ class UserDetail(Resource):
         if not user:
             return {"error": "User not found"}, 404
         try:
-            facade.user_repo.update(user_id, api.payload)  # ✅ api.payload
-            return facade.user_repo.get(user_id).to_dict(), 200
+            return facade.update_user(user_id, api.payload).to_dict(), 200
         except ValueError as e:
             abort(400, message=str(e))
