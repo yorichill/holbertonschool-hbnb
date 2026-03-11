@@ -18,8 +18,8 @@ class Booking(BaseModel):
 
     def __init__(self, place_id: str, user_id: str,
                  check_in: str, check_out: str,
-                 guests: int = 1, **kwargs):
-        super().__init__(**kwargs)
+                 guests: int = 1):
+        super().__init__()
 
         self.check_in  = self._parse_date(check_in,  'check_in')
         self.check_out = self._parse_date(check_out, 'check_out')
@@ -69,15 +69,13 @@ class Booking(BaseModel):
 
     # ── Serialisation ─────────────────────────────────────────────────────────
 
-    def to_dict(self) -> dict:
-        base = super().to_dict()
-        base.update({
-            'place_id':  self.place_id,
-            'user_id':   self.user_id,
-            'check_in':  self.check_in.isoformat(),
-            'check_out': self.check_out.isoformat(),
-            'nights':    self.nights,
-            'guests':    self.guests,
-            'status':    self.status,
-        })
-        return base
+    def to_dict(self):
+        booking_dict = super().to_dict()  # Start with base attributes (id, created_at, updated_at)
+        booking_dict['place_id'] = self.place_id
+        booking_dict['user_id'] = self.user_id
+        booking_dict['check_in'] = self.check_in.isoformat()
+        booking_dict['check_out'] = self.check_out.isoformat()
+        booking_dict['nights'] = self.nights
+        booking_dict['guests'] = self.guests
+        booking_dict['status'] = self.status
+        return booking_dict
