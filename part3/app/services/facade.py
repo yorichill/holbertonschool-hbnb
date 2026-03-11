@@ -1,3 +1,4 @@
+from app import bcrypt
 from app.persistence.repository import InMemoryRepository
 from app.models.user import User
 from app.models.place import Place
@@ -31,7 +32,12 @@ class HBnBFacade:
         return self.user_repo.get_all()
 
     def update_user(self, user_id: str, data: dict):
+        if 'password' in data:
+            data['password'] = bcrypt.generate_password_hash(data['password']).decode('utf-8')
         self.user_repo.update(user_id, data)
+        return self.get_user(user_id)
+
+     # ── Amenity ───────────────────────────────────────────────────────────────
 
     # méthode amentity
 
