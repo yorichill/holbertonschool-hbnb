@@ -43,7 +43,7 @@ class BaseModel(ABC):
 
         # Include all other attributes except private ones (those starting with _)
         for key, value in self.__dict__.items():
-            if key not in ['id', 'created_at', 'updated_at']:
+            if not key.startswith('_') and key not in result:
                 result[key] = value
 
         return result

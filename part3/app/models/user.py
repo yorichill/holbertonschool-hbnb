@@ -84,22 +84,29 @@ class User(BaseModel):
 
     @property
     def password(self):
-        """Get the hashed password (for internal use only)."""
-        return self._password
+        """Password is write-only for security reasons."""
+        raise AttributeError("Password is not readable")
 
     @password.setter
     def password(self, value):
-        """Set the password, hashing it if it's not already hashed."""
-        if not value or len(value) < 8:
+        """Validate and hash the password before storing it."""
+        if not isinstance(value, str):
+            raise TypeError("Password must be a string")
+
+        if len(value) < 8:
             raise ValueError("Password must be at least 8 characters")
-        # Si la valeur ne semble pas être un hash bcrypt (commence par $2b$), on la hash
-        if not value.startswith('$2b$'):
-            self._password = bcrypt.generate_password_hash(value).decode('utf-8')
+
+        if not value.startswith(("$2a$", "$2b$", "$2y$")):
+            self._password = bcrypt.generate_password_hash(value).decode("utf-8")
         else:
             self._password = value
 
+    def hash_password(self, password):
+        """Hash a plaintext password and store it."""
+        self.password = password  # passe par le setter qui hashe
+
     def verify_password(self, password):
-        """Verify a plaintext password against the stored hashed password."""
+        """Check if the provided plaintext password matches the stored hashed password."""
         return bcrypt.check_password_hash(self._password, password)
 
     # ===================== SERIALIZATION =====================
