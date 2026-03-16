@@ -1,7 +1,7 @@
 # app/api/v1/reviews.py
 from flask_restx import Namespace, Resource, fields
 from app.services import facade
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt # <-- AJOUT de get_jwt
 
 api = Namespace('reviews', description='Review operations')
 
@@ -27,22 +27,18 @@ class ReviewList(Resource):
         data = api.payload
         place_id = data.get('place_id')
 
-        # 1. Vérifier si le lieu existe
         place = facade.get_place(place_id)
         if not place:
             return {'error': 'Place not found'}, 404
 
-        # 2. Règle anti-triche : Pas d'auto-promo
         if place.owner_id == current_user:
             return {'error': 'You cannot review your own place.'}, 400
 
-        # 3. Règle anti-spam : Un seul avis par lieu pour cet utilisateur
         existing_reviews = facade.get_reviews_by_place(place_id)
         for review in existing_reviews:
             if review.user_id == current_user:
                 return {'error': 'You have already reviewed this place.'}, 400
 
-        # On assigne l'identité du token au user_id de l'avis
         data['user_id'] = current_user
 
         try:
@@ -78,13 +74,15 @@ class ReviewResource(Resource):
     def put(self, review_id):
         """Update a review"""
         current_user = get_jwt_identity()
+        claims = get_jwt()
+        is_admin = claims.get('is_admin', False) # 👑 Lecture du rôle Admin
+
         review = facade.get_review(review_id)
-        
         if not review:
             return {'error': 'Review not found'}, 404
 
-        # Vérification : Seul l'auteur peut modifier son avis
-        if review.user_id != current_user:
+        # 👑 PASSE-MURAILLE : Autorisé si tu es Admin OU si tu es l'auteur
+        if not is_admin and review.user_id != current_user:
             return {'error': 'Unauthorized action'}, 403
 
         try:
@@ -101,26 +99,16 @@ class ReviewResource(Resource):
     def delete(self, review_id):
         """Delete a review"""
         current_user = get_jwt_identity()
+        claims = get_jwt()
+        is_admin = claims.get('is_admin', False) # 👑 Lecture du rôle Admin
+
         review = facade.get_review(review_id)
-        
         if not review:
             return {'error': 'Review not found'}, 404
 
-        # Vérification : Seul l'auteur peut supprimer son avis
-        if review.user_id != current_user:
+        # 👑 PASSE-MURAILLE : Autorisé si tu es Admin OU si tu es l'auteur
+        if not is_admin and review.user_id != current_user:
             return {'error': 'Unauthorized action'}, 403
 
         facade.delete_review(review_id)
         return {'message': 'Review deleted successfully'}, 200
-
-
-@api.route('/places/<string:place_id>/reviews')
-class PlaceReviewList(Resource):
-
-    @api.response(200, 'Reviews for place')
-    @api.response(404, 'Place not found')
-    def get(self, place_id):
-        """Get all reviews for a place"""
-        if not facade.get_place(place_id):
-            return {'error': 'Place not found'}, 404
-        return [r.to_dict() for r in facade.get_reviews_by_place(place_id)], 200

@@ -1,9 +1,9 @@
 # app/api/v1/places.py
 from flask_restx import Namespace, Resource, fields
 from app.services import facade
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 
-api = Namespace('places', description='Oplace operation')
+api = Namespace('places', description='Place operations')
 
 place_model = api.model('Place', {
     'title':       fields.String(required=True, description="Le titre du lieu"),
@@ -11,13 +11,13 @@ place_model = api.model('Place', {
     'price':       fields.Float(required=True, description="Le prix par nuit"),
     'latitude':    fields.Float(required=True, description="La latitude"),
     'longitude':   fields.Float(required=True, description="La longitude"),
-    'owner_id':    fields.String(required=True, description="L'ID du propriétaire"),
+    'owner_id':    fields.String(required=False, description="L'ID du propriétaire (auto)"),
 })
 
 
 @api.route('/')
-@api.route('/')
 class PlaceList(Resource):
+    
     @api.expect(place_model)
     @jwt_required()
     def post(self):
@@ -34,25 +34,38 @@ class PlaceList(Resource):
         except ValueError as e:
             return {'error': str(e)}, 400
             
-    # Ne touche pas au def get(self): ! Il doit rester public sans @jwt_required
+    def get(self):
+        """Retrieve all places"""
+        return [p.to_dict() for p in facade.get_all_places()], 200
 
 
 @api.route('/<place_id>')
 class PlaceResource(Resource):
-    # Ne touche pas au def get(self, place_id): ! Il reste public
     
+    def get(self, place_id):
+        """Get a place's details"""
+        place = facade.get_place(place_id)
+        if not place:
+            return {'error': 'Place not found'}, 404
+        return place.to_dict(), 200
+        
     @api.expect(place_model)
     @jwt_required() # <-- Le videur
     def put(self, place_id):
         """Update a place's details"""
         current_user = get_jwt_identity()
+        
+        # 👑 NOUVEAU : On lit tout le token pour voir si c'est un Admin
+        claims = get_jwt()
+        is_admin = claims.get('is_admin', False)
+
         place = facade.get_place(place_id)
         
         if not place:
             return {'error': 'Place not found'}, 404
             
-        # VÉRIFICATION : Est-ce que le gars connecté est le propriétaire ?
-        if place.owner_id != current_user:
+        # VÉRIFICATION : Si tu n'es PAS admin ET que tu n'es PAS le propriétaire -> Interdit !
+        if not is_admin and place.owner_id != current_user:
             return {'error': 'Unauthorized action'}, 403 # 403 = Interdit !
             
         try:
