@@ -1,23 +1,23 @@
-from app import bcrypt
-from app.persistence.repository import InMemoryRepository
+from app.persistence.repository import SQLAlchemyRepository
 from app.models.user import User
 from app.models.place import Place
 from app.models.amenity import Amenity
 from app.models.review import Review
 from app.models.booking import Booking
 
+
 class HBnBFacade:
     def __init__(self):
-        self.user_repo = InMemoryRepository()
-        self.place_repo = InMemoryRepository()
-        self.amenity_repo = InMemoryRepository()
-        self.review_repo = InMemoryRepository()
-        self.booking_repo = InMemoryRepository()
+        self.user_repo     = SQLAlchemyRepository(User)
+        self.place_repo    = SQLAlchemyRepository(Place)
+        self.amenity_repo  = SQLAlchemyRepository(Amenity)
+        self.review_repo   = SQLAlchemyRepository(Review)
+        self.booking_repo  = SQLAlchemyRepository(Booking)
 
-
-     # ── User ──────────────────────────────────────────────────────────────────
+    # ── User ──────────────────────────────────────────────────────────────────
 
     def create_user(self, user_data: dict):
+        user_data = dict(user_data)  # copie pour ne pas muter api.payload
         user = User(**user_data)
         self.user_repo.add(user)
         return user
@@ -26,20 +26,21 @@ class HBnBFacade:
         return self.user_repo.get(user_id)
 
     def get_user_by_email(self, email: str):
-        return self.user_repo.get_by_attribute('email', email)
+        return self.user_repo.get_by_attribute('_email', email)
 
     def get_all_users(self):
         return self.user_repo.get_all()
 
     def update_user(self, user_id: str, data: dict):
-        if 'password' in data:
-            data['password'] = bcrypt.generate_password_hash(data['password']).decode('utf-8')
-        self.user_repo.update(user_id, data)
+        data = dict(data)
+        obj = self.user_repo.get(user_id)
+        if obj and 'password' in data:
+            obj.password = data.pop('password')  # passe par le setter qui hashe
+        if data:
+            self.user_repo.update(user_id, data)
         return self.get_user(user_id)
 
-     # ── Amenity ───────────────────────────────────────────────────────────────
-
-    # méthode amentity
+    # ── Amenity ───────────────────────────────────────────────────────────────
 
     def create_amenity(self, amenity_data):
         amenity = Amenity(name=amenity_data['name'])
@@ -56,7 +57,7 @@ class HBnBFacade:
         self.amenity_repo.update(amenity_id, amenity_data)
         return self.get_amenity(amenity_id)
 
-    # méthode place
+    # ── Place ─────────────────────────────────────────────────────────────────
 
     def create_place(self, place_data):
         owner_id = place_data.get('owner_id')
@@ -122,10 +123,6 @@ class HBnBFacade:
         return self.booking_repo.get(booking_id)
 
     def get_all_bookings(self, **filters):
-        """
-        Optional filters for future use, e.g.:
-            get_all_bookings(status='confirmed')
-        """
         bookings = self.booking_repo.get_all()
         if filters.get('status'):
             bookings = [b for b in bookings if b.status == filters['status']]
@@ -138,13 +135,10 @@ class HBnBFacade:
         return [b for b in self.booking_repo.get_all() if b.place_id == place_id]
 
     def update_booking(self, booking_id: str, data: dict):
-        from app.models.booking import Booking
         booking = self.get_booking(booking_id)
         if not booking:
             return
 
-        # Merge incoming data with existing values, then re-validate via a
-        # temporary Booking instance (reuses all model validation for free)
         merged = {
             'place_id':  booking.place_id,
             'user_id':   booking.user_id,
@@ -168,7 +162,6 @@ class HBnBFacade:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _check_overlap(self, new_booking, exclude_id: str = None):
-        """Raise ValueError if new_booking overlaps any active booking for the same place."""
         for b in self.booking_repo.get_all():
             if b.id == exclude_id:
                 continue

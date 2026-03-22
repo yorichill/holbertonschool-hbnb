@@ -1,24 +1,23 @@
 from datetime import date
-from app.models import BaseModel
+from app.models.base_model import BaseModel
+from app import db
 
 
 class Booking(BaseModel):
-    """
-    Represents a reservation made by a user for a place.
-
-    Status lifecycle:  pending → confirmed
-                       pending → cancelled
-                    confirmed → cancelled
-    """
+    __tablename__ = 'bookings'
 
     STATUS_PENDING   = 'pending'
     STATUS_CONFIRMED = 'confirmed'
     STATUS_CANCELLED = 'cancelled'
-    VALID_STATUSES   = {STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED}
 
-    def __init__(self, place_id: str, user_id: str,
-                 check_in: str, check_out: str,
-                 guests: int = 1):
+    place_id  = db.Column(db.String(36), db.ForeignKey('places.id'), nullable=False)
+    user_id   = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    check_in  = db.Column(db.Date, nullable=False)
+    check_out = db.Column(db.Date, nullable=False)
+    guests    = db.Column(db.Integer, nullable=False, default=1)
+    status    = db.Column(db.String(20), nullable=False, default='pending')
+
+    def __init__(self, place_id, user_id, check_in, check_out, guests=1):
         super().__init__()
 
         self.check_in  = self._parse_date(check_in,  'check_in')
@@ -43,7 +42,7 @@ class Booking(BaseModel):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _parse_date(value, field: str) -> date:
+    def _parse_date(value, field):
         if isinstance(value, date):
             return value
         try:
@@ -52,7 +51,7 @@ class Booking(BaseModel):
             raise ValueError(f"{field} must be a valid date (YYYY-MM-DD).")
 
     @property
-    def nights(self) -> int:
+    def nights(self):
         return (self.check_out - self.check_in).days
 
     # ── Status transitions ────────────────────────────────────────────────────
@@ -70,12 +69,12 @@ class Booking(BaseModel):
     # ── Serialisation ─────────────────────────────────────────────────────────
 
     def to_dict(self):
-        booking_dict = super().to_dict()  # Start with base attributes (id, created_at, updated_at)
-        booking_dict['place_id'] = self.place_id
-        booking_dict['user_id'] = self.user_id
-        booking_dict['check_in'] = self.check_in.isoformat()
+        booking_dict = super().to_dict()
+        booking_dict['place_id']  = self.place_id
+        booking_dict['user_id']   = self.user_id
+        booking_dict['check_in']  = self.check_in.isoformat()
         booking_dict['check_out'] = self.check_out.isoformat()
-        booking_dict['nights'] = self.nights
-        booking_dict['guests'] = self.guests
-        booking_dict['status'] = self.status
+        booking_dict['nights']    = self.nights
+        booking_dict['guests']    = self.guests
+        booking_dict['status']    = self.status
         return booking_dict

@@ -1,8 +1,12 @@
 from flask import Flask
 from flask_restx import Api
+from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager
 
 bcrypt = Bcrypt()
+jwt = JWTManager()
+db = SQLAlchemy()
 
 def create_app(config_class="config.DevelopmentConfig"):
     # Initialisation de l'application Flask
@@ -10,6 +14,17 @@ def create_app(config_class="config.DevelopmentConfig"):
     app.config.from_object(config_class)
 
     bcrypt.init_app(app)
+    jwt.init_app(app)
+    db.init_app(app)
+
+    authorizations = {
+        'Bearer Auth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': "Type 'Bearer <token>' to authorize."
+        }
+    }
 
     # Configuration de l'API REST avec Flask-RESTX
     # La documentation Swagger est accessible à /api/v1/
@@ -18,7 +33,9 @@ def create_app(config_class="config.DevelopmentConfig"):
         version='1.0',
         title='HBnB API',
         description='HBnB Application API',
-        doc='/api/v1/'
+        doc='/api/v1/',
+        authorizations=authorizations,
+        security='Bearer Auth'
     )
 
     # Enregistrement des namespaces (routes) de chaque ressource
@@ -38,5 +55,8 @@ def create_app(config_class="config.DevelopmentConfig"):
 
     from app.api.v1.bookings import api as bookings_ns
     api.add_namespace(bookings_ns,  path='/api/v1/bookings')    # Gestion des réservations
+
+    from app.api.v1.auth import api as auth_ns
+    api.add_namespace(auth_ns, path='/api/v1/auth')  # Authentification
 
     return app  # Retourne l'instance de l'application configurée

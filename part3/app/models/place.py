@@ -1,36 +1,33 @@
-from app.models import BaseModel
+from app.models.base_model import BaseModel
+from app import db
 
 class Place(BaseModel):
-    """
-    Place model representing a place to stay.
-    """
+    __tablename__ = 'places'
+
+    name = db.Column(db.String(100), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(500), default='')
+    price = db.Column(db.Float, nullable=False)
+    _latitude = db.Column('latitude', db.Float, nullable=False)
+    _longitude = db.Column('longitude', db.Float, nullable=False)
+    owner_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
+    amenities = db.Column(db.JSON, default=list)
 
     def __init__(self, name, title, description, price, latitude, longitude, owner_id):
-        """
-        Initialize a Place instance.
-        Args:
-            name (str): Short identifier for the place (e.g., "Cozy Cottage")
-            title (str): Full marketing title (e.g., "Cozy Cottage in the Woods")
-            description (str): Detailed description
-            price (float): Price per night
-            latitude (float): GPS latitude (-90 to 90)
-            longitude (float): GPS longitude (-180 to 180)
-            owner_id (str): UUID of the owner
-        """
         super().__init__()
         self.name = name
         self.title = title
         self.description = description
         self.price = price
-        self._latitude = latitude
-        self._longitude = longitude
+        self.latitude = latitude    # passe par le setter avec validation
+        self.longitude = longitude  # passe par le setter avec validation
         self.owner_id = owner_id
-        self.amenities = []  # List of amenity IDs (UUID strings)
+        self.amenities = []
 
     # ----------------- Latitude -----------------
+
     @property
     def latitude(self):
-        """Getter for latitude"""
         return self._latitude
 
     @latitude.setter
@@ -40,9 +37,9 @@ class Place(BaseModel):
         self._latitude = value
 
     # ----------------- Longitude -----------------
+
     @property
     def longitude(self):
-        """Getter for longitude"""
         return self._longitude
 
     @longitude.setter
@@ -52,26 +49,16 @@ class Place(BaseModel):
         self._longitude = value
 
     # ----------------- Amenities -----------------
-    def add_amenity(self, amenity):
-        """
-        Add an amenity to the place.
-        Accepts either an Amenity object or its id (string).
-        """
-        if hasattr(amenity, "id"):
-            amenity_id = amenity.id
-        else:
-            amenity_id = amenity  # assume it's a UUID string
 
+    def add_amenity(self, amenity):
+        amenity_id = amenity.id if hasattr(amenity, "id") else amenity
         if amenity_id not in self.amenities:
             self.amenities.append(amenity_id)
 
     # ----------------- Serialization -----------------
+
     def to_dict(self):
-        """
-        Convert Place to dictionary.
-        Includes private coordinates and amenity IDs.
-        """
-        place_dict = super().to_dict() # Start with base attributes (id, created_at, updated_at)
+        place_dict = super().to_dict()
         place_dict['name'] = self.name
         place_dict['title'] = self.title
         place_dict['description'] = self.description
@@ -81,27 +68,3 @@ class Place(BaseModel):
         place_dict['owner_id'] = self.owner_id
         place_dict['amenities'] = self.amenities
         return place_dict
-
-    # ----------------- Static / Class Methods -----------------
-    @staticmethod
-    def list_all():
-        """List all places (to be implemented in Part3)"""
-        pass
-
-    @staticmethod
-    def get_by_criteria(criteria):
-        """
-        Get places by search criteria (to be implemented in Part3)
-        Args:
-            criteria (dict): filters like price_max, city, etc.
-        Returns:
-            list of Place objects
-        """
-        pass
-
-    def get_all_reservations(self):
-        """
-        Get all reservations for this place (to be implemented in Part3)
-        Private method for owner use only
-        """
-        pass
