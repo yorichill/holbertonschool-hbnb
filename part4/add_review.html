@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add Review — HBnB</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+       <div>id="app-header"</div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="index.html">Places</a>
+      <span>›</span>
+      <a href="#" id="breadcrumb-place">Place</a>
+      <span>›</span>
+      <span>Write a Review</span>
+    </nav>
+
+    <div class="add-review">
+      <h2>Share your experience</h2>
+      <p style="color:var(--color-muted);font-size:.88rem;margin-bottom:24px">
+        Your honest review helps other travellers make better decisions.
+      </p>
+
+      <div id="form-error" class="form-error" role="alert"></div>
+
+      <form id="review-form" class="form" novalidate>
+
+        <!-- Star rating -->
+        <div class="form-group">
+          <label>Your rating</label>
+          <div class="star-rating" role="group" aria-label="Rating">
+            <input type="radio" id="star5" name="rating" value="5" required />
+            <label for="star5" title="5 stars">★</label>
+            <input type="radio" id="star4" name="rating" value="4" />
+            <label for="star4" title="4 stars">★</label>
+            <input type="radio" id="star3" name="rating" value="3" />
+            <label for="star3" title="3 stars">★</label>
+            <input type="radio" id="star2" name="rating" value="2" />
+            <label for="star2" title="2 stars">★</label>
+            <input type="radio" id="star1" name="rating" value="1" />
+            <label for="star1" title="1 star">★</label>
+          </div>
+        </div>
+
+        <!-- Comment -->
+        <div class="form-group">
+          <label for="review-text">Your review</label>
+          <textarea
+            id="review-text"
+            name="text"
+            placeholder="What did you love? What could be improved? Be specific and helpful…"
+            minlength="10"
+            maxlength="2000"
+            required
+          ></textarea>
+          <span id="char-count" style="font-size:.75rem;color:var(--color-muted);text-align:right">0 / 2000</span>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" id="submit-btn">
+            Submit Review
+          </button>
+          <a href="#" id="cancel-btn" class="btn btn-outline">
+            Cancel
+          </a>
+        </div>
+
+      </form>
+    </div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>&copy; <span id="year"></span> HBnB — All rights reserved.</p>
+  </footer>
+
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { getCookie, showToast, escapeHTML } from './utils.js';
+    import { initAuthNav } from './header.js';
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    /* ── Auth guard ─────────────────────────────────────── */
+    const token = getCookie('token');
+    if (!token) window.location.replace('index.html');
+
+    await initHeader(token, { activeLink: 'add_review.html' });
+
+    /* ── Place ID ───────────────────────────────────────── */
+    const params  = new URLSearchParams(window.location.search);
+    const placeId = params.get('id');
+    if (!placeId) window.location.replace('index.html');
+
+    const placeLink = `place.html?id=${encodeURIComponent(placeId)}`;
+    document.getElementById('breadcrumb-place').href = placeLink;
+    document.getElementById('cancel-btn').href = placeLink;
+
+    /* ── Fetch place name for breadcrumb ────────────────── */
+    (async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/v1/places/${encodeURIComponent(placeId)}`,
+          { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } }
+        );
+        if (res.ok) {
+          const place = await res.json();
+          document.getElementById('breadcrumb-place').textContent = place.name || 'Place';
+          document.title = `Review: ${place.name} — HBnB`;
+        }
+      } catch (_) { /* silent */ }
+    })();
+
+    /* ── Character counter ──────────────────────────────── */
+    const textarea  = document.getElementById('review-text');
+    const charCount = document.getElementById('char-count');
+    textarea.addEventListener('input', () => {
+      const len = textarea.value.length;
+      charCount.textContent = `${len} / 2000`;
+      charCount.style.color = len > 1900 ? 'var(--color-accent)' : 'var(--color-muted)';
+    });
+
+    /* ── Form submit ────────────────────────────────────── */
+    const form      = document.getElementById('review-form');
+    const errEl     = document.getElementById('form-error');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.classList.remove('visible');
+
+      const ratingInput = form.querySelector('input[name="rating"]:checked');
+      const rating      = ratingInput ? parseInt(ratingInput.value, 10) : null;
+      const text        = textarea.value.trim();
+
+      if (!rating) {
+        errEl.textContent = 'Please select a star rating.';
+        errEl.classList.add('visible');
+        return;
+      }
+      if (text.length < 10) {
+        errEl.textContent = 'Your review must be at least 10 characters.';
+        errEl.classList.add('visible');
+        return;
+      }
+
+      submitBtn.textContent = 'Submitting…';
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/v1/places/${encodeURIComponent(placeId)}/reviews`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ text, rating })
+          }
+        );
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || `Server error ${res.status}`);
+
+        showToast('Review submitted — thank you!', 'success');
+        setTimeout(() => window.location.replace(placeLink), 1200);
+
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.add('visible');
+        submitBtn.textContent = 'Submit Review';
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Places — HBnB</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+       <div>id="app-header"</div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <div class="page-header">
+      <h1>Explore Places</h1>
+      <p>Find unique stays around the world</p>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar" role="search">
+      <label for="country-filter">Filter by country:</label>
+      <select id="country-filter" aria-label="Filter places by country">
+        <option value="all">All countries</option>
+      </select>
+    </div>
+
+    <!-- Places grid -->
+    <section id="places-container" class="places-grid" aria-label="Places listing">
+      <!-- Skeleton loaders while fetching -->
+      <div class="place-card skeleton-card" aria-hidden="true">
+        <div class="skeleton" style="height:200px;border-radius:8px 8px 0 0;margin:-10px -10px 12px;width:calc(100% + 20px)"></div>
+        <div class="place-card-body">
+          <div class="skeleton" style="height:20px;width:70%;border-radius:4px"></div>
+          <div class="skeleton" style="height:14px;width:45%;border-radius:4px;margin-top:6px"></div>
+          <div class="skeleton" style="height:16px;width:30%;border-radius:4px;margin-top:12px"></div>
+          <div class="skeleton" style="height:36px;width:120px;border-radius:8px;margin-top:14px"></div>
+        </div>
+      </div>
+      <div class="place-card skeleton-card" aria-hidden="true">
+        <div class="skeleton" style="height:200px;border-radius:8px 8px 0 0;margin:-10px -10px 12px;width:calc(100% + 20px)"></div>
+        <div class="place-card-body">
+          <div class="skeleton" style="height:20px;width:80%;border-radius:4px"></div>
+          <div class="skeleton" style="height:14px;width:40%;border-radius:4px;margin-top:6px"></div>
+          <div class="skeleton" style="height:16px;width:35%;border-radius:4px;margin-top:12px"></div>
+          <div class="skeleton" style="height:36px;width:120px;border-radius:8px;margin-top:14px"></div>
+        </div>
+      </div>
+      <div class="place-card skeleton-card" aria-hidden="true">
+        <div class="skeleton" style="height:200px;border-radius:8px 8px 0 0;margin:-10px -10px 12px;width:calc(100% + 20px)"></div>
+        <div class="place-card-body">
+          <div class="skeleton" style="height:20px;width:60%;border-radius:4px"></div>
+          <div class="skeleton" style="height:14px;width:50%;border-radius:4px;margin-top:6px"></div>
+          <div class="skeleton" style="height:16px;width:28%;border-radius:4px;margin-top:12px"></div>
+          <div class="skeleton" style="height:36px;width:120px;border-radius:8px;margin-top:14px"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>&copy; <span id="year"></span> HBnB — All rights reserved.</p>
+  </footer>
+
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { getCookie, showToast, escapeHTML, escapeAttr, starsHTML } from './utils.js';
+    import { initAuthNav } from './header.js';
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const token = getCookie('token');
+    await initHeader(token, { activeLink: 'index.html' });
+
+    /* ── State ──────────────────────────────────────────── */
+    let allPlaces = [];
+
+    /* ── Fetch places ───────────────────────────────────── */
+    async function fetchPlaces() {
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch('http://localhost:5000/api/v1/places', { headers });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+        allPlaces = await res.json();
+        renderPlaces(allPlaces);
+        buildCountryFilter(allPlaces);
+
+      } catch (err) {
+        console.error(err);
+        showToast('Could not load places. Is the API running?', 'error');
+        renderPlaces([]);
+      }
+    }
+
+    /* ── Build country filter ───────────────────────────── */
+    function buildCountryFilter(places) {
+      const countries = [...new Set(
+        places.map(p => p.country || p.city || null).filter(Boolean)
+      )].sort();
+
+      const sel = document.getElementById('country-filter');
+      countries.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        sel.appendChild(opt);
+      });
+    }
+
+    /* ── Render places ──────────────────────────────────── */
+    function renderPlaces(places) {
+      const container = document.getElementById('places-container');
+
+      container.querySelectorAll('.skeleton-card').forEach(el => el.remove());
+      container.querySelectorAll('.place-card:not(.skeleton-card)').forEach(el => el.remove());
+
+      if (places.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-state-icon">🏡</div>
+            <h3>No places found</h3>
+            <p>Try adjusting your filter or check back later.</p>
+          </div>`;
+        return;
+      }
+
+      places.forEach(place => {
+        const card = document.createElement('article');
+        card.className = 'place-card';
+        card.dataset.country = place.country || place.city || '';
+
+        const imgSrc = place.image_url || place.thumbnail || 'images/place_default.jpg';
+        const price  = Number(place.price_by_night ?? place.price ?? 0).toFixed(0);
+        const loc    = [place.city, place.country].filter(Boolean).join(', ') || '—';
+        const rating = place.rating ?? null;
+
+        card.innerHTML = `
+          <img class="place-card-img" src="${escapeAttr(imgSrc)}"
+               alt="${escapeAttr(place.name)}"
+               onerror="this.src='images/place_default.jpg'" />
+          <div class="place-card-body">
+            <h2 class="place-card-name">${escapeHTML(place.name)}</h2>
+            <p class="place-card-location">📍 ${escapeHTML(loc)}</p>
+            ${rating !== null ? `<p style="color:#f5a623;font-size:.82rem">${starsHTML(rating)}</p>` : ''}
+            <p class="place-card-price">
+              $${escapeHTML(price)} <span>/ night</span>
+            </p>
+            <div class="place-card-footer">
+              <a class="details-button" href="place.html?id=${encodeURIComponent(place.id)}">
+                View Details
+              </a>
+            </div>
+          </div>`;
+
+        container.appendChild(card);
+      });
+    }
+
+    /* ── Filter handler ─────────────────────────────────── */
+    document.getElementById('country-filter').addEventListener('change', function () {
+      const val = this.value;
+      const filtered = val === 'all'
+        ? allPlaces
+        : allPlaces.filter(p => (p.country || p.city || '') === val);
+      renderPlaces(filtered);
+    });
+
+    /* ── Init ───────────────────────────────────────────── */
+    fetchPlaces();
+  </script>
+
+</body>
+</html>

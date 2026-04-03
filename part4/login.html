@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — HBnB</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+   <div>id="app-header"</div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+    <div class="login-wrapper">
+      <div class="login-card">
+
+        <h1>Welcome back</h1>
+        <p class="subtitle">Sign in to your HBnB account</p>
+
+        <div id="login-error" class="form-error" role="alert"></div>
+
+        <form id="login-form" class="form" novalidate>
+
+          <div class="form-group">
+            <label for="email">Email address</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              autocomplete="current-password"
+              placeholder="Your password"
+              required
+            />
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" style="width:100%;">
+              Sign in
+            </button>
+          </div>
+
+        </form>
+
+        <p class="login-footer-text">
+          Don't have an account? <a href="#">Sign up</a>
+        </p>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>&copy; <span id="year"></span> HBnB — All rights reserved.</p>
+  </footer>
+
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { getCookie, setCookie, showToast } from './utils.js';
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    /* Si déjà connecté, skip vers index */
+    if (getCookie('token')) {
+      window.location.replace('index.html');
+    }
+
+    /* ── Login form ─────────────────────────────────────── */
+    const form  = document.getElementById('login-form');
+    const errEl = document.getElementById('login-error');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.classList.remove('visible');
+
+      const email    = form.email.value.trim();
+      const password = form.password.value;
+
+      if (!email || !password) {
+        errEl.textContent = 'Please fill in all fields.';
+        errEl.classList.add('visible');
+        return;
+      }
+
+      const submitBtn = form.querySelector('[type="submit"]');
+      submitBtn.textContent = 'Signing in…';
+      submitBtn.disabled = true;
+
+      try {
+        const res = await fetch('http://localhost:5000/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || data.error || 'Invalid credentials.');
+        }
+
+        setCookie('token', data.access_token);
+        showToast('Logged in successfully!', 'success');
+        setTimeout(() => window.location.replace('index.html'), 600);
+
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.add('visible');
+        submitBtn.textContent = 'Sign in';
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+
+</body>
+</html>

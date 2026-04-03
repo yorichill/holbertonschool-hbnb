@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Place Details — HBnB</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+       <div>id="app-header"</div>
+
+  </header>
+
+  <!-- ── Main ── -->
+  <main>
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="index.html">Places</a>
+      <span>›</span>
+      <span id="breadcrumb-name">Loading…</span>
+    </nav>
+
+    <!-- Place details container -->
+    <div id="place-container">
+      <!-- Skeleton while loading -->
+      <div id="skeleton-place" class="place-details" aria-hidden="true">
+        <div class="skeleton" style="height:380px;border-radius:9px 9px 0 0"></div>
+        <div class="place-info">
+          <div class="skeleton" style="height:32px;width:55%;border-radius:6px;margin-bottom:16px"></div>
+          <div class="skeleton" style="height:16px;width:35%;border-radius:4px;margin-bottom:10px"></div>
+          <div class="skeleton" style="height:60px;width:80%;border-radius:4px;margin-bottom:20px"></div>
+          <div class="skeleton" style="height:36px;width:120px;border-radius:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reviews section -->
+    <section class="reviews-section" id="reviews-section" aria-label="Reviews" style="display:none">
+      <h2 class="section-title">Reviews</h2>
+      <div id="reviews-container" class="reviews-grid"></div>
+    </section>
+
+    <!-- Add review (authenticated users only) -->
+    <div id="add-review-cta" style="display:none;margin-top:8px"></div>
+
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>&copy; <span id="year"></span> HBnB — All rights reserved.</p>
+  </footer>
+
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { getCookie, showToast, escapeHTML, escapeAttr, starsHTML } from './utils.js';
+    import { initAuthNav } from './header.js';
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const token = getCookie('token');
+    await initHeader(token, { activeLink: 'place.html' });
+
+    /* ── Get place ID from URL ──────────────────────────── */
+    const params  = new URLSearchParams(window.location.search);
+    const placeId = params.get('id');
+
+    if (!placeId) window.location.replace('index.html');
+
+    /* ── Fetch place details ────────────────────────────── */
+    async function fetchPlace() {
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(`http://localhost:5000/api/v1/places/${encodeURIComponent(placeId)}`, { headers });
+        if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+        const place = await res.json();
+        renderPlace(place);
+        renderReviews(place.reviews ?? []);
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('skeleton-place').remove();
+        document.getElementById('place-container').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <h3>Could not load place</h3>
+            <p>${escapeHTML(err.message)}</p>
+            <a href="index.html" class="btn btn-outline" style="margin-top:16px;display:inline-block">← Back to Places</a>
+          </div>`;
+      }
+    }
+
+    /* ── Render place ───────────────────────────────────── */
+    function renderPlace(place) {
+      document.title = `${place.name} — HBnB`;
+      document.getElementById('breadcrumb-name').textContent = place.name;
+
+      const imgSrc    = place.image_url || place.thumbnail || 'images/place_default.jpg';
+      const price     = Number(place.price_by_night ?? place.price ?? 0).toFixed(0);
+      const hostName  = place.owner
+        ? `${escapeHTML(place.owner.first_name ?? '')} ${escapeHTML(place.owner.last_name ?? '')}`.trim()
+        : (place.host_name ? escapeHTML(place.host_name) : '—');
+      const amenities = place.amenities ?? [];
+      const loc       = [place.city, place.country].filter(Boolean).join(', ') || '—';
+
+      const amenitiesHTML = amenities.length
+        ? `<ul class="amenities-list">
+            ${amenities.map(a => `<li>${escapeHTML(a.name ?? a)}</li>`).join('')}
+           </ul>`
+        : '<p style="color:var(--color-muted);font-size:.85rem">No amenities listed.</p>';
+
+      const detailsEl = document.getElementById('skeleton-place');
+      detailsEl.removeAttribute('aria-hidden');
+      detailsEl.id = 'place-details-card';
+
+      detailsEl.innerHTML = `
+        <img class="place-details-hero"
+             src="${escapeAttr(imgSrc)}"
+             alt="${escapeAttr(place.name)}"
+             onerror="this.src='images/place_default.jpg'" />
+        <div class="place-info">
+          <h1>${escapeHTML(place.name)}</h1>
+          <div class="place-meta">
+            <span class="place-meta-item">📍 ${escapeHTML(loc)}</span>
+            <span class="place-meta-item">👤 Host: <strong>${hostName}</strong></span>
+            <span class="place-meta-item">🏠 Max guests: <strong>${escapeHTML(String(place.max_guest ?? place.guests ?? '—'))}</strong></span>
+            <span class="place-meta-item">🛏 Rooms: <strong>${escapeHTML(String(place.number_rooms ?? '—'))}</strong></span>
+            <span class="place-meta-item">🚿 Bathrooms: <strong>${escapeHTML(String(place.number_bathrooms ?? '—'))}</strong></span>
+          </div>
+          <div class="place-price-badge">
+            <span class="amount">$${escapeHTML(price)}</span>
+            <span class="per">/ night</span>
+          </div>
+          <p class="place-description">
+            ${escapeHTML(place.description || 'No description provided.')}
+          </p>
+          <h3 style="font-family:var(--font-display);font-size:1rem;margin-bottom:10px">Amenities</h3>
+          ${amenitiesHTML}
+        </div>`;
+
+      if (token) {
+        const ctaEl = document.getElementById('add-review-cta');
+        ctaEl.style.display = 'block';
+        ctaEl.innerHTML = `
+          <a href="add_review.html?id=${encodeURIComponent(placeId)}" class="btn btn-primary">
+            ✏️ Write a Review
+          </a>`;
+      }
+    }
+
+    /* ── Render reviews ─────────────────────────────────── */
+    function renderReviews(reviews) {
+      const section   = document.getElementById('reviews-section');
+      const container = document.getElementById('reviews-container');
+      section.style.display = 'block';
+
+      if (reviews.length === 0) {
+        container.innerHTML = '<p class="no-reviews">No reviews yet. Be the first to review this place!</p>';
+        return;
+      }
+
+      reviews.forEach(r => {
+        const card = document.createElement('article');
+        card.className = 'review-card';
+
+        const userName = r.user
+          ? `${escapeHTML(r.user.first_name ?? '')} ${escapeHTML(r.user.last_name ?? '')}`.trim()
+          : (r.user_name ? escapeHTML(r.user_name) : 'Anonymous');
+
+        const date = r.created_at
+          ? new Date(r.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+          : '';
+
+        card.innerHTML = `
+          <div class="review-card-header">
+            <span class="review-author">${userName}</span>
+            <span class="review-stars" title="${r.rating ?? 0} out of 5">${starsHTML(r.rating)}</span>
+          </div>
+          <p class="review-text">${escapeHTML(r.text ?? r.comment ?? '')}</p>
+          ${date ? `<span class="review-date">${date}</span>` : ''}`;
+
+        container.appendChild(card);
+      });
+    }
+
+    /* ── Init ───────────────────────────────────────────── */
+    fetchPlace();
+  </script>
+
+</body>
+</html>
