@@ -11,7 +11,7 @@
 
   <!-- ── Header ── -->
   <header>
-       <div>id="app-header"</div>
+    <div id="app-header"></div>
   </header>
 
   <!-- ── Main ── -->
@@ -97,9 +97,9 @@
 
     /* ── Auth guard ─────────────────────────────────────── */
     const token = getCookie('token');
-    if (!token) window.location.replace('index.html');
+    if (!token) window.location.replace('login.html');
 
-    await initHeader(token, { activeLink: 'add_review.html' });
+    await initAuthNav(token, { activeLink: 'add_review.html' });
 
     /* ── Place ID ───────────────────────────────────────── */
     const params  = new URLSearchParams(window.location.search);

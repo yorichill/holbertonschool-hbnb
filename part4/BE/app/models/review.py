@@ -1,5 +1,5 @@
-from part4.BE.app.models.base_model import BaseModel
-from part4.BE.app import db
+from app.models.base_model import BaseModel
+from app import db
 
 
 class Review(BaseModel):

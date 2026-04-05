@@ -56,7 +56,7 @@ class SQLAlchemyRepository(Repository):
         self.model = model
 
     def add(self, obj):
-        from part4.BE.app import db
+        from app import db
         db.session.add(obj)
         db.session.commit()
 
@@ -67,15 +67,16 @@ class SQLAlchemyRepository(Repository):
         return self.model.query.all()
 
     def update(self, obj_id, data):
-        from part4.BE.app import db
+        from app import db
         obj = self.get(obj_id)
         if obj:
             for key, value in data.items():
-                setattr(obj, key, value)
+                if hasattr(obj, key):
+                    setattr(obj, key, value)
             db.session.commit()
 
     def delete(self, obj_id):
-        from part4.BE.app import db
+        from app import db
         obj = self.get(obj_id)
         if obj:
             db.session.delete(obj)

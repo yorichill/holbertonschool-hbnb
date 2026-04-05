@@ -1,6 +1,6 @@
 from datetime import date
-from part4.BE.app.models.base_model import BaseModel
-from part4.BE.app import db
+from app.models.base_model import BaseModel
+from app import db
 
 
 class Booking(BaseModel):
@@ -9,7 +9,6 @@ class Booking(BaseModel):
     STATUS_PENDING   = 'pending'
     STATUS_CONFIRMED = 'confirmed'
     STATUS_CANCELLED = 'cancelled'
-    VALID_STATUSES   = {STATUS_PENDING, STATUS_CONFIRMED, STATUS_CANCELLED}
 
     place_id  = db.Column(db.String(36), db.ForeignKey('places.id'), nullable=False)
     user_id   = db.Column(db.String(36), db.ForeignKey('users.id'),  nullable=False)
@@ -18,9 +17,7 @@ class Booking(BaseModel):
     guests    = db.Column(db.Integer, nullable=False, default=1)
     status    = db.Column(db.String(20), nullable=False, default='pending')
 
-    def __init__(self, place_id: str = '', user_id: str = '',
-                 check_in: str = '', check_out: str = '',
-                 guests: int = 1, **kwargs):
+    def __init__(self, place_id='', user_id='', check_in='', check_out='', guests=1, **kwargs):
         super().__init__(**kwargs)
         self.check_in  = self._parse_date(check_in,  'check_in')
         self.check_out = self._parse_date(check_out, 'check_out')
@@ -39,9 +36,8 @@ class Booking(BaseModel):
         self.guests   = int(guests)
         self.status   = self.STATUS_PENDING
 
-    # ── Helpers ───────────────────────────────────────────────────────────
     @staticmethod
-    def _parse_date(value, field: str) -> date:
+    def _parse_date(value, field):
         if isinstance(value, date):
             return value
         try:
@@ -50,22 +46,24 @@ class Booking(BaseModel):
             raise ValueError(f"{field} must be a valid date (YYYY-MM-DD).")
 
     @property
-    def nights(self) -> int:
+    def nights(self):
         return (self.check_out - self.check_in).days
 
-    # ── Status transitions ────────────────────────────────────────────────
     def confirm(self):
         if self.status != self.STATUS_PENDING:
             raise ValueError("Only pending bookings can be confirmed.")
         self.status = self.STATUS_CONFIRMED
+        from app import db
+        db.session.commit()
 
     def cancel(self):
         if self.status == self.STATUS_CANCELLED:
             raise ValueError("Booking is already cancelled.")
         self.status = self.STATUS_CANCELLED
+        from app import db
+        db.session.commit()
 
-    # ── Serialisation ─────────────────────────────────────────────────────
-    def to_dict(self) -> dict:
+    def to_dict(self):
         base = super().to_dict()
         base.update({
             'place_id':  self.place_id,

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from part4.BE.app import db
+from app import db
 
 
 class BaseModel(db.Model):

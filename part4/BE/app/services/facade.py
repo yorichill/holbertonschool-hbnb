@@ -1,13 +1,13 @@
-from part4.BE.app.persistence.repository import SQLAlchemyRepository
-from part4.BE.app.services.repositories.user_repository import UserRepository
+from app.persistence.repository import SQLAlchemyRepository
+from app.services.repositories.user_repository import UserRepository
 
 
 class HBnBFacade:
     def __init__(self):
-        from part4.BE.app.models.place import Place
-        from part4.BE.app.models.review import Review
-        from part4.BE.app.models.amenity import Amenity
-        from part4.BE.app.models.booking import Booking
+        from app.models.place import Place
+        from app.models.review import Review
+        from app.models.amenity import Amenity
+        from app.models.booking import Booking
 
         self.user_repo    = UserRepository()
         self.place_repo   = SQLAlchemyRepository(Place)
@@ -18,7 +18,7 @@ class HBnBFacade:
     # ── User ──────────────────────────────────────────────────────────────────
 
     def create_user(self, user_data: dict):
-        from part4.BE.app.models.user import User
+        from app.models.user import User
         password = user_data.pop('password', None)
         user = User(**user_data)
         if password:
@@ -61,13 +61,13 @@ class HBnBFacade:
         from datetime import datetime
         user.updated_at = datetime.utcnow()
 
-        from part4.BE.app import db
+        from app import db
         db.session.commit()
 
     # ── Amenity ───────────────────────────────────────────────────────────────
 
     def create_amenity(self, amenity_data: dict):
-        from part4.BE.app.models.amenity import Amenity
+        from app.models.amenity import Amenity
         amenity = Amenity(**amenity_data)
         self.amenity_repo.add(amenity)
         return amenity
@@ -84,7 +84,7 @@ class HBnBFacade:
     # ── Place ─────────────────────────────────────────────────────────────────
 
     def create_place(self, place_data: dict):
-        from part4.BE.app.models.place import Place
+        from app.models.place import Place
 
         if not self.get_user(place_data.get('owner_id', '')):
             raise ValueError('Owner not found.')
@@ -117,7 +117,7 @@ class HBnBFacade:
     # ── Review ────────────────────────────────────────────────────────────────
 
     def create_review(self, review_data: dict):
-        from part4.BE.app.models.review import Review
+        from app.models.review import Review
         review = Review(**review_data)
         self.review_repo.add(review)
         return review
@@ -140,7 +140,7 @@ class HBnBFacade:
     # ── Booking ───────────────────────────────────────────────────────────────
 
     def create_booking(self, booking_data: dict):
-        from part4.BE.app.models.booking import Booking
+        from app.models.booking import Booking
         booking = Booking(**booking_data)
         self._check_overlap(booking)
         self.booking_repo.add(booking)
@@ -162,7 +162,7 @@ class HBnBFacade:
         return [b for b in self.booking_repo.get_all() if b.place_id == place_id]
 
     def update_booking(self, booking_id: str, data: dict):
-        from part4.BE.app.models.booking import Booking
+        from app.models.booking import Booking
         booking = self.get_booking(booking_id)
         if not booking:
             return
@@ -184,7 +184,7 @@ class HBnBFacade:
         from datetime import datetime
         booking.updated_at = datetime.utcnow()
 
-        from part4.BE.app import db
+        from app import db
         db.session.commit()
 
     def delete_booking(self, booking_id: str):
@@ -206,3 +206,5 @@ class HBnBFacade:
                     f"({b.check_in} → {b.check_out})."
                 )
                 
+    def delete_place(self, place_id):
+        self.place_repo.delete(place_id)

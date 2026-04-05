@@ -15,7 +15,7 @@ VALUES (
     99.99,
     48.8566,
     2.3522,
-    '36c9050e-ddd3-4c3b-9731-9f487208bbc1'
+    '36c9050e-ddd3-4c3b-9731-9f487208bbc1' 
 );
 
 -- INSERT test review

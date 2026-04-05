@@ -11,7 +11,7 @@
 
   <!-- ── Header ── -->
   <header>
-       <div>id="app-header"</div>
+    <div id="app-header"></div>
   </header>
 
   <!-- ── Main ── -->
@@ -79,7 +79,7 @@
     document.getElementById('year').textContent = new Date().getFullYear();
 
     const token = getCookie('token');
-    await initHeader(token, { activeLink: 'index.html' });
+    await initAuthNav(token, { activeLink: 'index.html' });
 
     /* ── State ──────────────────────────────────────────── */
     let allPlaces = [];

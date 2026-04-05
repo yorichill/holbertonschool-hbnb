@@ -11,8 +11,7 @@
 
   <!-- ── Header ── -->
   <header>
-       <div>id="app-header"</div>
-
+    <div id="app-header"></div>
   </header>
 
   <!-- ── Main ── -->
@@ -48,6 +47,9 @@
     <!-- Add review (authenticated users only) -->
     <div id="add-review-cta" style="display:none;margin-top:8px"></div>
 
+    <!-- Booking section (all users) -->
+    <div id="booking-section" style="display:none;margin-top:32px"></div>
+
   </main>
 
   <!-- ── Footer ── -->
@@ -65,7 +67,7 @@
     document.getElementById('year').textContent = new Date().getFullYear();
 
     const token = getCookie('token');
-    await initHeader(token, { activeLink: 'place.html' });
+    await initAuthNav(token, { activeLink: 'place.html' });
 
     /* ── Get place ID from URL ──────────────────────────── */
     const params  = new URLSearchParams(window.location.search);
@@ -79,12 +81,16 @@
         const headers = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const res = await fetch(`http://localhost:5000/api/v1/places/${encodeURIComponent(placeId)}`, { headers });
+        const res = await fetch(
+          `http://localhost:5000/api/v1/places/${encodeURIComponent(placeId)}`,
+          { headers }
+        );
         if (!res.ok) throw new Error(`Server error ${res.status}`);
 
         const place = await res.json();
         renderPlace(place);
         renderReviews(place.reviews ?? []);
+        renderBooking(place);
 
       } catch (err) {
         console.error(err);
@@ -190,6 +196,149 @@
 
         container.appendChild(card);
       });
+    }
+
+    /* ── Render booking ─────────────────────────────────── */
+    function renderBooking(place) {
+      const section = document.getElementById('booking-section');
+      section.style.display = 'block';
+
+      const price = Number(place.price_by_night ?? place.price ?? 0);
+
+      section.innerHTML = `
+        <div class="add-review" style="max-width:480px">
+          <h2 style="font-family:var(--font-display);font-size:1.4rem;margin-bottom:8px">Book this place</h2>
+          <p style="color:var(--color-muted);font-size:.88rem;margin-bottom:24px">
+            Select your dates to see the total price.
+          </p>
+          <div id="booking-error" class="form-error" role="alert"></div>
+          <div class="form" id="booking-form">
+            <div class="form-group">
+              <label for="checkin">Check-in date</label>
+              <input type="date" id="checkin" name="checkin" required />
+            </div>
+            <div class="form-group">
+              <label for="checkout">Check-out date</label>
+              <input type="date" id="checkout" name="checkout" required />
+            </div>
+            <div id="booking-summary" style="
+              background:var(--color-tag-bg);
+              border:1px solid var(--color-border);
+              border-radius:8px;
+              padding:14px 18px;
+              display:none;
+              font-size:.9rem;
+            ">
+              <p style="margin:0;color:var(--color-muted)">
+                <strong id="booking-nights" style="color:var(--color-text)">—</strong> nights
+                × <strong>$${price}</strong> / night
+              </p>
+              <p style="margin:6px 0 0;font-size:1.05rem;font-weight:700;color:var(--color-accent-dk)">
+                Total: <span id="booking-total">$0</span>
+              </p>
+            </div>
+            <div class="form-actions">
+              ${token
+                ? `<button id="confirm-booking" class="btn btn-primary">Confirm Booking</button>`
+                : `<a href="login.html" class="btn btn-primary">Sign in to Book</a>`
+              }
+            </div>
+          </div>
+          <p id="booking-success" style="display:none;color:#27ae60;font-weight:600;margin-top:12px">
+            🎉 Booking confirmed! Check your email for details.
+          </p>
+        </div>`;
+
+      /* Date logic */
+      const checkinEl  = document.getElementById('checkin');
+      const checkoutEl = document.getElementById('checkout');
+      const summary    = document.getElementById('booking-summary');
+      const nightsEl   = document.getElementById('booking-nights');
+      const totalEl    = document.getElementById('booking-total');
+
+      /* Set min dates */
+      const today = new Date().toISOString().split('T')[0];
+      checkinEl.min = today;
+      checkoutEl.min = today;
+
+      function updateSummary() {
+        const ci = new Date(checkinEl.value);
+        const co = new Date(checkoutEl.value);
+        if (!checkinEl.value || !checkoutEl.value || co <= ci) {
+          summary.style.display = 'none';
+          return;
+        }
+        const nights = Math.round((co - ci) / 864e5);
+        nightsEl.textContent = nights;
+        totalEl.textContent = `$${(nights * price).toFixed(0)}`;
+        summary.style.display = 'block';
+      }
+
+      checkinEl.addEventListener('change', () => {
+        /* checkout must be after checkin */
+        checkoutEl.min = checkinEl.value;
+        if (checkoutEl.value && checkoutEl.value <= checkinEl.value) {
+          checkoutEl.value = '';
+        }
+        updateSummary();
+      });
+      checkoutEl.addEventListener('change', updateSummary);
+
+      /* Confirm booking */
+      const confirmBtn = document.getElementById('confirm-booking');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+          const bookingErr = document.getElementById('booking-error');
+          bookingErr.classList.remove('visible');
+
+          if (!checkinEl.value || !checkoutEl.value) {
+            bookingErr.textContent = 'Please select check-in and check-out dates.';
+            bookingErr.classList.add('visible');
+            return;
+          }
+          if (checkoutEl.value <= checkinEl.value) {
+            bookingErr.textContent = 'Check-out must be after check-in.';
+            bookingErr.classList.add('visible');
+            return;
+          }
+
+          confirmBtn.textContent = 'Booking…';
+          confirmBtn.disabled = true;
+
+          try {
+            const res = await fetch(
+              `http://localhost:5000/api/v1/places/${encodeURIComponent(placeId)}/bookings`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  check_in:  checkinEl.value,
+                  check_out: checkoutEl.value
+                })
+              }
+            );
+
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.message || data.error || `Server error ${res.status}`);
+            }
+
+            /* Success */
+            document.getElementById('booking-form').style.display = 'none';
+            document.getElementById('booking-success').style.display = 'block';
+            showToast('Booking confirmed!', 'success');
+
+          } catch (err) {
+            bookingErr.textContent = err.message;
+            bookingErr.classList.add('visible');
+            confirmBtn.textContent = 'Confirm Booking';
+            confirmBtn.disabled = false;
+          }
+        });
+      }
     }
 
     /* ── Init ───────────────────────────────────────────── */

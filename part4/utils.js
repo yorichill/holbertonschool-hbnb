@@ -16,6 +16,7 @@ export function deleteCookie(name) {
 
 export function showToast(msg, type = 'error') {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.className = `toast ${type} show`;
   setTimeout(() => t.classList.remove('show'), 4000);

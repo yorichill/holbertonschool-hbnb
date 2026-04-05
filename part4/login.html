@@ -11,21 +11,19 @@
 
   <!-- ── Header ── -->
   <header>
-   <div>id="app-header"</div>
+    <div id="app-header"></div>
   </header>
 
   <!-- ── Main ── -->
   <main>
     <div class="login-wrapper">
       <div class="login-card">
-
         <h1>Welcome back</h1>
         <p class="subtitle">Sign in to your HBnB account</p>
 
         <div id="login-error" class="form-error" role="alert"></div>
 
         <form id="login-form" class="form" novalidate>
-
           <div class="form-group">
             <label for="email">Email address</label>
             <input
@@ -55,13 +53,11 @@
               Sign in
             </button>
           </div>
-
         </form>
 
         <p class="login-footer-text">
           Don't have an account? <a href="#">Sign up</a>
         </p>
-
       </div>
     </div>
   </main>
@@ -76,13 +72,16 @@
 
   <script type="module">
     import { getCookie, setCookie, showToast } from './utils.js';
+    import { initAuthNav } from './header.js';
 
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    /* Si déjà connecté, skip vers index */
+    /* If already logged in, skip to index */
     if (getCookie('token')) {
       window.location.replace('index.html');
     }
+
+    await initAuthNav(null, { activeLink: 'login.html' });
 
     /* ── Login form ─────────────────────────────────────── */
     const form  = document.getElementById('login-form');
@@ -118,7 +117,8 @@
           throw new Error(data.message || data.error || 'Invalid credentials.');
         }
 
-        setCookie('token', data.access_token);
+        /* Store JWT in cookie (7 days) */
+        document.cookie = `token=${data.access_token}; path=/; SameSite=Lax`;
         showToast('Logged in successfully!', 'success');
         setTimeout(() => window.location.replace('index.html'), 600);
 

@@ -2,8 +2,8 @@
 import { deleteCookie } from './utils.js';
 
 /**
- * Injecte le bouton Sign In ou Sign Out dans le nav,
- * et branche le handler de déconnexion.
+ * Injecte le header depuis header.html, marque le lien actif,
+ * et branche le bouton Sign In / Sign Out.
  *
  * @param {string|null} token
  * @param {object}      opts
@@ -11,37 +11,32 @@ import { deleteCookie } from './utils.js';
  * @param {string}      [opts.redirectOnLogout='index.html']
  * @param {string}      [opts.activeLink]
  */
-export async function initHeader(token, {
+export async function initAuthNav(token, {
   navId = 'auth-nav-item',
   redirectOnLogout = 'index.html',
   activeLink = '',
 } = {}) {
   const mount = document.getElementById('app-header');
   if (!mount) return;
- 
-  /* ── Charger le fragment HTML ── */
-  const res  = await fetch('./header.html');
-  const html = await res.text();
-  mount.innerHTML = html;
- 
-  /* ── Marquer le lien actif ── */
+
+  /* ── Load header HTML fragment ── */
+  try {
+    const res  = await fetch('./header.html');
+    const html = await res.text();
+    mount.innerHTML = html;
+  } catch (_) {
+    mount.innerHTML = '<nav></nav>';
+  }
+
+  /* ── Mark active link ── */
   if (activeLink) {
     const link = mount.querySelector(`a[href="${activeLink}"]`);
     link?.classList.add('active');
   }
 
-  /* ── Injecter Sign In / Sign Out ── */
+  /* ── Inject Sign In / Sign Out ── */
   const nav = mount.querySelector(`#${navId}`);
   if (!nav) return;
-
-export function initAuthNav(token, {
-  navId = 'auth-nav-item',
-  redirectOnLogout = 'index.html',
-} = {}) {
-  const nav = document.getElementById(navId);
-  if (!nav) return;
-
-  
 
   if (token) {
     nav.innerHTML = `
