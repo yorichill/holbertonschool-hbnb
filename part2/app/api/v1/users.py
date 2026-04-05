@@ -1,61 +1,60 @@
-# app/api/v1/users.py
-from flask_restx import Namespace, Resource, fields, abort
+from flask_restx import Namespace, Resource, fields
 from app.services import facade
 
 api = Namespace('users', description='User operations')
 
-# ✅ AJOUT du modèle — manquait complètement
 user_model = api.model('User', {
-    'first_name': fields.String(required=True, description='Prénom'),
-    'last_name':  fields.String(required=True, description='Nom'),
-    'email':      fields.String(required=True, description='Adresse email'),
-    'password':   fields.String(required=True, description='Mot de passe'),
+    'first_name': fields.String(required=True, description='First name'),
+    'last_name': fields.String(required=True, description='Last name'),
+    'email': fields.String(required=True, description='Email address'),
 })
 
 
 @api.route('/')
 class UserList(Resource):
-
-    @api.expect(user_model, validate=True)  # ✅ AJOUT — manquait
-    @api.response(201, 'User created')
+    @api.expect(user_model, validate=True)
+    @api.response(201, 'User created successfully')
     @api.response(400, 'Validation error')
     def post(self):
-        """Create a new user"""
+        """Register a new user"""
+        data = api.payload
+        # Check for duplicate email
+        if facade.get_user_by_email(data['email']):
+            api.abort(400, 'Email already registered')
         try:
-            user = facade.create_user(api.payload)  # ✅ api.payload et non request.get_json()
-            return user.to_dict(), 201
+            user = facade.create_user(data)
         except ValueError as e:
-            abort(400, message=str(e))
+            api.abort(400, str(e))
+        return user.to_dict(), 201
 
-    @api.response(200, 'List of users')
+    @api.response(200, 'List of users retrieved')
     def get(self):
-        """Get all users"""
-        return [u.to_dict() for u in facade.user_repo.get_all()], 200
+        """Retrieve all users"""
+        return [u.to_dict() for u in facade.get_all_users()], 200
 
 
 @api.route('/<string:user_id>')
-class UserDetail(Resource):
-
-    @api.response(200, 'User details')
+class UserResource(Resource):
+    @api.response(200, 'User details retrieved')
     @api.response(404, 'User not found')
     def get(self, user_id):
         """Get a user by ID"""
-        user = facade.user_repo.get(user_id)
+        user = facade.get_user(user_id)
         if not user:
-            abort(404, message='User not found')
+            api.abort(404, 'User not found')
         return user.to_dict(), 200
 
-    @api.expect(user_model, validate=True)  # ✅ AJOUT — manquait
-    @api.response(200, 'User updated')
-    @api.response(400, 'Validation error')
+    @api.expect(user_model)
+    @api.response(200, 'User updated successfully')
     @api.response(404, 'User not found')
+    @api.response(400, 'Validation error')
     def put(self, user_id):
-        """Update a user by ID"""
-        user = facade.user_repo.get(user_id)
+        """Update a user"""
+        user = facade.get_user(user_id)
         if not user:
-            abort(404, message='User not found')
+            api.abort(404, 'User not found')
         try:
-            facade.user_repo.update(user_id, api.payload)  # ✅ api.payload
-            return facade.user_repo.get(user_id).to_dict(), 200
+            facade.update_user(user_id, api.payload)
         except ValueError as e:
-            abort(400, message=str(e))
+            api.abort(400, str(e))
+        return facade.get_user(user_id).to_dict(), 200

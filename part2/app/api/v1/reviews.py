@@ -1,20 +1,18 @@
-# app/api/v1/reviews.py
 from flask_restx import Namespace, Resource, fields
 from app.services import facade
 
 api = Namespace('reviews', description='Review operations')
 
 review_model = api.model('Review', {
-    'text':     fields.String(required=True, description='Review text'),
-    'rating':   fields.Integer(required=True, description='Rating (1-5)'),
+    'text': fields.String(required=True, description='Review text'),
+    'rating': fields.Integer(required=True, description='Rating (1-5)'),
     'place_id': fields.String(required=True, description='Place ID'),
-    'user_id':  fields.String(required=True, description='User ID'),
+    'user_id': fields.String(required=True, description='User ID'),
 })
 
 
 @api.route('/')
 class ReviewList(Resource):
-
     @api.expect(review_model, validate=True)
     @api.response(201, 'Review created')
     @api.response(400, 'Validation error')
@@ -22,9 +20,9 @@ class ReviewList(Resource):
         """Create a new review"""
         data = api.payload
         if not facade.get_place(data['place_id']):
-            api.abort(404, 'Place not found')
+            api.abort(400, 'Place not found')
         if not facade.get_user(data['user_id']):
-            api.abort(404, 'User not found')
+            api.abort(400, 'User not found')
         try:
             review = facade.create_review(data)
         except ValueError as e:
@@ -39,7 +37,6 @@ class ReviewList(Resource):
 
 @api.route('/<string:review_id>')
 class ReviewResource(Resource):
-
     @api.response(200, 'Review details')
     @api.response(404, 'Review not found')
     def get(self, review_id):
@@ -49,9 +46,8 @@ class ReviewResource(Resource):
             api.abort(404, 'Review not found')
         return review.to_dict(), 200
 
-    @api.expect(review_model, validate=True)  # ✅ AJOUT validate=True — manquait
+    @api.expect(review_model)
     @api.response(200, 'Review updated')
-    @api.response(400, 'Validation error')
     @api.response(404, 'Review not found')
     def put(self, review_id):
         """Update a review"""
@@ -77,7 +73,6 @@ class ReviewResource(Resource):
 
 @api.route('/places/<string:place_id>/reviews')
 class PlaceReviewList(Resource):
-
     @api.response(200, 'Reviews for place')
     @api.response(404, 'Place not found')
     def get(self, place_id):

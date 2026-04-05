@@ -1,22 +1,26 @@
 from app.persistence.repository import InMemoryRepository
-from app.models.user import User
-from app.models.place import Place
-from app.models.amenity import Amenity
-from app.models.review import Review
-from app.models.booking import Booking
+
 
 class HBnBFacade:
+    """
+    Single point of contact between the Presentation layer (API) and the
+    Persistence layer (repositories).
+
+    All create_* methods now simply unpack the incoming dict with **kwargs,
+    so adding a new field to a model requires no changes here.
+    """
+
     def __init__(self):
-        self.user_repo = InMemoryRepository()
-        self.place_repo = InMemoryRepository()
+        self.user_repo    = InMemoryRepository()
+        self.place_repo   = InMemoryRepository()
+        self.review_repo  = InMemoryRepository()
         self.amenity_repo = InMemoryRepository()
-        self.review_repo = InMemoryRepository()
         self.booking_repo = InMemoryRepository()
 
-
-     # ── User ──────────────────────────────────────────────────────────────────
+    # ── User ──────────────────────────────────────────────────────────────────
 
     def create_user(self, user_data: dict):
+        from app.models.user import User
         user = User(**user_data)
         self.user_repo.add(user)
         return user
@@ -33,58 +37,66 @@ class HBnBFacade:
     def update_user(self, user_id: str, data: dict):
         self.user_repo.update(user_id, data)
 
-    # méthode amentity
+    # ── Amenity ───────────────────────────────────────────────────────────────
 
-    def create_amenity(self, amenity_data):
-        amenity = Amenity(name=amenity_data['name'])
+    def create_amenity(self, amenity_data: dict):
+        from app.models.amenity import Amenity
+        amenity = Amenity(**amenity_data)
         self.amenity_repo.add(amenity)
         return amenity
 
-    def get_amenity(self, amenity_id):
+    def get_amenity(self, amenity_id: str):
         return self.amenity_repo.get(amenity_id)
 
     def get_all_amenities(self):
         return self.amenity_repo.get_all()
 
-    def update_amenity(self, amenity_id, amenity_data):
-        self.amenity_repo.update(amenity_id, amenity_data)
-        return self.get_amenity(amenity_id)
+    def update_amenity(self, amenity_id: str, data: dict):
+        self.amenity_repo.update(amenity_id, data)
 
-    # méthode place
+    # ── Place ─────────────────────────────────────────────────────────────────
 
-    def create_place(self, place_data):
-        owner_id = place_data.get('owner_id')
-        owner = self.user_repo.get(owner_id)
+    def create_place(self, place_data: dict):
+        from app.models.place import Place
 
-        if not owner:
-            raise ValueError("Le propriétaire spécifié n'existe pas.")
+        if not self.get_user(place_data.get('owner_id', '')):
+            raise ValueError('Owner not found.')
 
-        place = Place(
-            name=place_data.get('name', place_data['title']),
-            title=place_data['title'],
-            description=place_data.get('description', ''),
-            price=place_data['price'],
-            latitude=place_data['latitude'],
-            longitude=place_data['longitude'],
-            owner_id=owner_id
-        )
+        # Pop amenity_ids — not a Place field, handled separately
+        amenity_ids = place_data.pop('amenity_ids', [])
+
+        place = Place(**place_data)
+
+        for amenity_id in amenity_ids:
+            amenity = self.get_amenity(amenity_id)
+            if amenity:
+                place.amenities.append(amenity)
 
         self.place_repo.add(place)
         return place
 
-    def get_place(self, place_id):
+    def get_place(self, place_id: str):
         return self.place_repo.get(place_id)
 
-    def get_all_places(self):
-        return self.place_repo.get_all()
+    def get_all_places(self, **filters):
+        """
+        Optional keyword filters for future use, e.g.:
+            get_all_places(min_price=50, max_price=200)
+        """
+        places = self.place_repo.get_all()
+        if filters.get('min_price') is not None:
+            places = [p for p in places if p.price >= filters['min_price']]
+        if filters.get('max_price') is not None:
+            places = [p for p in places if p.price <= filters['max_price']]
+        return places
 
-    def update_place(self, place_id, place_data):
-        self.place_repo.update(place_id, place_data)
-        return self.get_place(place_id)
+    def update_place(self, place_id: str, data: dict):
+        self.place_repo.update(place_id, data)
 
     # ── Review ────────────────────────────────────────────────────────────────
 
     def create_review(self, review_data: dict):
+        from app.models.review import Review
         review = Review(**review_data)
         self.review_repo.add(review)
         return review
@@ -107,6 +119,7 @@ class HBnBFacade:
     # ── Booking ───────────────────────────────────────────────────────────────
 
     def create_booking(self, booking_data: dict):
+        from app.models.booking import Booking
         booking = Booking(**booking_data)
         self._check_overlap(booking)
         self.booking_repo.add(booking)

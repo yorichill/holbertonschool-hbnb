@@ -1,145 +1,47 @@
-from app.models import BaseModel
 import re
+from app.models.base_model import BaseModel
 
 
 class User(BaseModel):
     """
-    User model representing a user in the system.
-    Can be a guest or a property owner.
+    Represents an application user.
+
+    Accepts kwargs so it can be built directly from a request dict:
+        user = User(**user_data)
+    or via the factory:
+        user = User.from_dict(user_data)
     """
 
-    def __init__(self, first_name, last_name, email, password, is_admin=False):
-        """
-        Initialize User instance with provided attributes.
-        """
-        super().__init__()
-        self.first_name = first_name
-        self.last_name = last_name
-        self.email = email
-        self.password = password
-        self.is_admin = is_admin
+    def __init__(self, first_name: str = '', last_name: str = '',
+                 email: str = '', is_admin: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        self.first_name = self._validate_name(first_name, 'first_name')
+        self.last_name  = self._validate_name(last_name,  'last_name')
+        self.email      = self._validate_email(email)
+        self.is_admin   = bool(is_admin)
 
-    # ===================== FIRST NAME =====================
-
-    @property
-    def first_name(self):
-        return self._first_name
-
-    @first_name.setter
-    def first_name(self, value):
-        if not value or not isinstance(value, str):
-            raise ValueError("First name is required and must be a string")
-
-        value = value.strip()
-        if not value:
-            raise ValueError("First name cannot be empty")
-
-        self._first_name = value
-
-    # ===================== LAST NAME =====================
-
-    @property
-    def last_name(self):
-        return self._last_name
-
-    @last_name.setter
-    def last_name(self, value):
-        if not value or not isinstance(value, str):
-            raise ValueError("Last name is required and must be a string")
-
-        value = value.strip()
-        if not value:
-            raise ValueError("Last name cannot be empty")
-
-        self._last_name = value
-
-    # ===================== EMAIL =====================
-
-    @property
-    def email(self):
-        return self._email
-
-    @email.setter
-    def email(self, value):
-        self._email = self._validate_email(value)
+    # ── Validators ────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _validate_email(email):
-        """
-        Validate email format.
-        """
-        if not email or not isinstance(email, str):
-            raise ValueError("Email is required and must be a string")
+    def _validate_name(value: str, field: str) -> str:
+        if not value or len(value) > 50:
+            raise ValueError(f"{field} must be between 1 and 50 characters.")
+        return value
 
-        email = email.strip().lower()
-
-        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.fullmatch(email_regex, email):
-            raise ValueError("Invalid email format")
-
+    @staticmethod
+    def _validate_email(email: str) -> str:
+        if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
+            raise ValueError("Invalid email address.")
         return email
 
-    # ===================== PASSWORD =====================
+    # ── Serialisation ─────────────────────────────────────────────────────────
 
-    @property
-    def password(self):
-        """Getter for password (returns None for security reasons)"""
-        return None
-
-    @password.setter
-    def password(self, value):
-        if not value or not isinstance(value, str):
-            raise ValueError("Password is required and must be a string")
-
-        self._password = value  # hashing in Part3
-
-    def validate_password(self):
-        """
-        Validate password strength.
-        """
-        return len(self._password) >= 8
-
-    # ===================== SERIALIZATION =====================
-
-    def to_dict(self):
-        """
-        Convert User to dictionary.
-        Excludes password for security reasons.
-        """
-        user_dict = super().to_dict()
-        user_dict["first_name"] = self.first_name
-        user_dict["last_name"] = self.last_name
-        user_dict["email"] = self.email
-        user_dict["is_admin"] = self.is_admin
-
-        # sécurité
-        user_dict.pop("_password", None)
-        return user_dict
-
-    # ===================== PLACEHOLDERS =====================
-
-    def register(self):
-        """Register the user in the database (to be implemented in Part3)"""
-        pass
-
-    def authenticate(self, password):
-        """
-        Authenticate user with password.
-        """
-        return self._password == password
-
-    def add_place(self, title, description, price, latitude, longitude):
-        """Add a place for the user (to be implemented in Part3)"""
-        pass
-
-    def has_reserved(self, place):
-        """Check if user has reserved a place (to be implemented in Part3)"""
-        pass
-
-    def add_review(self, text, rating):
-        """Add a review for a place (to be implemented in Part3)"""
-        pass
-
-    def add_amenity(self, name, description):
-        """Add an amenity for the user (to be implemented in Part3)"""
-        pass
+    def to_dict(self) -> dict:
+        base = super().to_dict()
+        base.update({
+            'first_name': self.first_name,
+            'last_name':  self.last_name,
+            'email':      self.email,
+            'is_admin':   self.is_admin,
+        })
+        return base
