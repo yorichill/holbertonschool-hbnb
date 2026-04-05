@@ -1,392 +1,333 @@
-# HBnB - Technical Design Document (Part 1)
+# HBnB Technical Documentation — Comprehensive Guide
 
-## 1. Introduction
-
-This document serves as the comprehensive technical blueprint for the **HBnB** project (a simplified AirBnB clone). It outlines the system architecture, design decisions, and data flows that will guide the implementation phases.
-
-The purpose of this document is to:
-
-- Define the high-level architecture (N-tier) to ensure separation of concerns.
-- Detail the Business Logic layer, including entities and their relationships.
-- Visualize the communication flow between layers via API calls.
-
-This blueprint ensures a structured approach to development, facilitating maintainability and scalability.
+Welcome to the **HBnB Technical Documentation**, a complete blueprint for the HBnB project.  
+This document compiles **all diagrams, architecture notes, and API flows** to serve as a reference for developers and beginners alike.
 
 ---
 
-## 2. High-Level Architecture
+## 📑 Table of Contents
 
+1. [Introduction](#introduction)  
+2. [High-Level Architecture](#high-level-architecture)  
+3. [Business Logic Layer](#business-logic-layer)  
+4. [API Interaction Flow](#api-interaction-flow)  
+   - [User Management](#user-management)  
+   - [Place Management](#place-management)  
+   - [Booking Management](#booking-management)  
+   - [Review Management](#review-management)  
+   - [Payment Management](#payment-management)  
+   - [Amenity Management](#amenity-management)  
+   - [Admin Management](#admin-management)  
+   - [Message Management](#message-management)  
+5. [Tips](#tips)  
+
+---
+
+## Introduction
+
+**Objective:**  
+This document is a **technical blueprint** of the HBnB project. It combines high-level architecture, detailed class diagrams, and API flow explanations into a single, organized reference.  
+
+**Scope:**  
+- Serve as a guide for implementation.  
+- Clarify how data moves through the layers.  
+- Explain roles and responsibilities of components.  
+- Include beginner-friendly notes and tips.
+
+---
+
+## High-Level Architecture
+
+**Diagram Overview:**  
+- **Presentation Layer** → Receives user requests and forwards them to BL (Facade Pattern).  
+- **Business Logic Layer (BL)** → Applies rules, validates data, and prepares objects for persistence.  
+- **Persistence Layer (Repo)** → Handles CRUD operations to the database.  
+- **Database (MySQL)** → Physical storage of all application data.
+
+**Design Notes:**  
+- Facade Pattern simplifies interactions between API and BL.  
+- BL does not interact directly with the database; all access goes through Repos.  
+- Separation of concerns ensures maintainability and scalability.  
+
+**Mermaid Diagram Snippet:**
 ```mermaid
-flowchart TB
-    %% ===================
-    %% Presentation Layer
-    %% ===================
-    subgraph P["Presentation Layer"]
-        direction TB
-        API["API / Endpoints\n(Controllers / Routes)\n- POST /users\n- POST /places\n- POST /reviews\n- GET /places"]
-        SVC["Services\n(Request handling)"]
-        API --> SVC
-    end
-
-    %% ===================
-    %% Business Logic Layer
-    %% ===================
-    subgraph B["Business Logic Layer"]
-        direction TB
-        FACADE["HBnB Facade\n(Unified interface)\n- create_user()\n- create_place()\n- create_review()\n- get_places()"]
-        MODELS["Domain Models\n(User, Place, Review, Amenity)\n+ Business Rules\n+ Validation"]
-        FACADE --> MODELS
-    end
-
-    %% ===================
-    %% Persistence Layer
-    %% ===================
-    subgraph D["Persistence Layer"]
-        direction TB
-        REPO["Repository (Interface)\n(Data access abstraction)\n- save()\n- findById()\n- findAll()\n- update()\n- delete()"]
-        DB["Database\n(Persistent storage)"]
-        REPO --> DB
-    end
-
-    %% ===================
-    %% Layer Communication (Dependencies)
-    %% ===================
-    SVC -->|Calls Facade| FACADE
-    MODELS -->|CRUD operations| REPO
+classDiagram
+    PresentationLayer --> BusinessLogicLayer : Facade Pattern
+    BusinessLogicLayer --> PersistenceLayer : Database Operations
+    PersistenceLayer --> MySQL : SQL Access
 ```
 
-The HBnB application is built on a **Layered Architecture** (3-tier) using the **Facade Design Pattern**. This structure ensures that each layer has a specific responsibility and interacts with others through well-defined interfaces.
+# Business Logic Layer (BLL)
 
-### Package Diagram
-
-![High-Level Package Diagram](all diagrams/Detailed Class Diagram for Business Logic Layer.png)
-
-### Explanatory Notes
-
-- **Presentation Layer:** The entry point for users via the `ServiceAPI`. It handles HTTP requests and responses but contains no business logic. It delegates all processing to the Business Logic Layer.
-- **Business Logic Layer & Facade Pattern:** This is the core of the application. We utilize the **Facade Pattern** (`HBnBFacade`) to provide a simplified, unified interface to the Presentation Layer. The API doesn't need to know about the complex relationships between `User`, `Place`, or `Review`; it simply calls methods on the Facade.
-- **Persistence Layer:** Responsible for data storage. The Business Layer communicates with the `DatabaseRepository` to save or retrieve objects, abstracting the underlying database technology (SQL, File Storage, etc.).
+## 🎯 Purpose
+Contains all **business rules** and **application logic** of the system.
 
 ---
 
-## 3. Business Logic Layer
+## 📦 Main Entities
 
-The detailed class diagram represents the core entities of the application and their interrelationships. All entities inherit from a common `BaseModel` to ensure consistency in ID generation and timestamping.
+| Entity   | Responsibilities |
+|----------|-----------------|
+| **User**     | Registration, authentication, profile updates |
+| **Place**    | Create/update/search places, link amenities |
+| **Booking**  | Create/cancel booking, check availability, calculate total price |
+| **Review**   | Validate and post reviews, update ratings |
+| **Payment**  | Process payments and refunds |
+| **Amenity**  | Manage amenities and link to places |
+| **Admin**    | Manage users and permissions |
+| **Message**  | Manage conversations |
 
-### Class Diagram
+---
+
+## 🧱 Design Principles
+
+- ✅ **Validation before persistence**: All incoming data is validated in the business layer before saving.
+- 🔁 **Alternative paths & loops**: Handles conditional flows (e.g., booking available vs unavailable).
+- 🧪 **BL / Repositories separation**: Ensures code testability and maintainability.
+
+---
+
+## 🔗 Mermaid Diagram (Excerpt)
 
 ```mermaid
 classDiagram
-    direction TB
-
-    %% ===================
-    %% Base class (shared attributes and methods)
-    %% ===================
-    class BaseModel {
-        <<abstract>>
-        -UUID id
-        -DateTime created_at
-        -DateTime updated_at
-        #save() void
-        #update() void
-        #delete() void
-        +to_dict() dict
-    }
-
-    %% ===================
-    %% User, Place, Review, Amenity classes
-    %% ====================
     class User {
-        +String first_name
-        +String last_name
-        +String email
-        -String password
-        +Boolean is_admin
-        +register() bool
-        +authenticate() bool
-        +add_place(title, description, price, latitude, longitude) bool
-        +has_reserved(place) bool
-        +add_review(text, rating) bool
-        +add_amenity(name, description) bool
+        +register()
+        +authenticate()
+        +updateProfile()
     }
-
     class Place {
-        +String name
-        +String title
-        +String description
-        +Float price
-        -Float latitude
-        -Float longitude
-        +String owner_id
-        +List~Amenity~ amenities
-        +list_all() List~Place~
-        +get_by_criteria(criteria) List~Place~
-        -get_all_reservation() List
+        +create()
+        +update()
+        +search()
+        +linkAmenity()
     }
-
+    class Booking {
+        +create()
+        +cancel()
+        +checkAvailability()
+        +calculateTotal()
+    }
     class Review {
-        +String text
-        +Int rating
-        +String user_id
-        +String place_id
-        +list_by_place(place_id) List~Review~
+        +post()
+        +update()
+        +report()
     }
-
+    class Payment {
+        +process()
+        +refund()
+    }
     class Amenity {
-        +String name
-        +String description
-        +list_all() List~Amenity~
+        +create()
+        +linkToPlace()
     }
-
-    %% ===================
-    %% Inheritance relationships
-    %% ===================
-    BaseModel <|-- User : inherits
-    BaseModel <|-- Place : inherits
-    BaseModel <|-- Review : inherits
-    BaseModel <|-- Amenity : inherits
-
-    %% ===================
-    %% Associations
-    %% ===================
-    User "1" --> "0..*" Place : manages
-    User "1" --> "0..*" Review : writes
-    Place "0..*" --> "0..*" Amenity : offers
-    Review "0..*" --> "1" Place : about
+    class Admin {
+        +manageUsers()
+        +managePermissions()
+    }
+    class Message {
+        +send()
+        +receive()
+        +trackReadStatus()
+    }
 ```
 
-### Explanatory Notes
+## API Interaction Flow
 
-- **BaseModel:** The abstract parent class. It automatically manages the unique identifier (`UUID`) and timestamps (`created_at`, `updated_at`) for every entity, reducing code duplication.
-- **User:** Represents the registered users. A user can own multiple `Places` (Host) and write multiple `Reviews` (Guest).
-- **Place:** The central entity. It is linked to a `User` (owner) and can have many `Reviews`. It also has a many-to-many relationship with `Amenity` (e.g., WiFi, Pool).
-- **Relationships:**
-  - **Composition/Aggregation:** A Place _has_ Reviews.
-  - **Association:** Users interact with Places by writing Reviews.
+Each module below describes API calls, their path through the Business Layer (BL) and repositories, and alternative paths.  
+This document helps visualize how requests move through the system and how errors or loops are handled.
 
 ---
 
-## 4. API Interaction Flow
+## 👤 User Management
 
-The following sequence diagrams illustrate how the three layers interact to fulfill specific user requests.
+**Role:** Registration, profile management, authentication.
 
-### 4.1. User Registration
+### Nominal Flow
+User → API → BL validates → Repository saves → BL returns → API responds
 
-This flow demonstrates the creation of a new user, highlighting the validation logic within the Business Layer.
+### Alternatives
+- ❌ Validation fails → `400 Bad Request`
+- ✅ Success → `201 Created`
 
-```mermaid
-sequenceDiagram
-    %% Layers:
-    %% Presentation: User, API
-    %% Business Logic: Facade, BusinessLogic, Repository
-    %% Persistence: Database
-
-    actor User
-    participant API as API (Presentation Layer)
-    participant Facade as Facade
-    participant BusinessLogic as Business Logic
-    participant Repository as Repository (Interface)
-    participant Database as Database
-
-    User ->> API: POST /users with data
-    API ->> Facade: create_user(data)
-
-    alt "Missing required fields"
-        Facade -->> API: 400 Bad Request - Missing fields
-        API -->> User: Please fill all required fields
-    else "Invalid email format"
-        Facade -->> API: 400 Bad Request - Invalid email
-        API -->> User: Invalid email address
-    else "Password too short"
-        Facade -->> API: 400 Bad Request - Weak password
-        API -->> User: Password must be at least 8 characters
-    else "Email already exists"
-        Facade -->> API: 409 Conflict - Email already registered
-        API -->> User: Email already in use
-    else "Valid data"
-        Facade ->> BusinessLogic: create_user_instance(data)
-        BusinessLogic --> BusinessLogic: User(user_data)
-        BusinessLogic ->> Repository: save(user)
-        Repository ->> Database: INSERT user
-        alt "Database error"
-            Database -->> Repository: 500 Internal Server Error
-            Repository -->> BusinessLogic: Persistence failed
-            BusinessLogic -->> Facade: 500 Internal Server Error
-            Facade -->> API: 500 Internal Server Error
-            API -->> User: An error occurred, please try again
-        else "Success"
-            Database -->> Repository: OK + user_id
-            Repository -->> BusinessLogic: User saved + user_id
-            BusinessLogic -->> Facade: return user + user_id
-            Facade -->> API: 201 Created + user object
-            API -->> User: Success + user_id
-        end
-    end
-```
-
-- **Note:** The API handles the request format, but the `HBnBFacade` enforces rules (e.g., unique email) and security (password hashing) before asking the Persistence layer to save.
-
-### 4.2. Creating a Place
-
-This flow shows how a logged-in user creates a listing.
-
-```mermaid
-sequenceDiagram
-    %% Layers:
-    %% Presentation: User, API
-    %% Business Logic: Facade, PlaceLogic, Repository
-    %% Persistence: Database
-
-    actor User
-    participant API as API (Presentation Layer)
-    participant Facade as Facade
-    participant PlaceLogic as Business Logic
-    participant Repository as Repository (Interface)
-    participant Database as Database
-
-    User ->> API: POST /places with place data
-    API ->> Facade: create_place(data)
-
-    alt Missing required fields
-        Facade -->> API: 400 - Missing required fields
-        API -->> User: Fill all required fields
-    else Invalid price or location
-        Facade -->> API: 400 - Invalid price/location
-        API -->> User: Check your data
-    else Invalid amenities
-        Facade -->> API: 400 - Invalid amenities
-        API -->> User: Provide valid amenities
-    else Valid data
-        Facade ->> PlaceLogic: validate and build place
-        PlaceLogic --> PlaceLogic: Place(place_data)
-        PlaceLogic ->> Repository: save(place_object)
-        Repository ->> Database: INSERT place
-        alt Database error
-            Database -->> Repository: 500 Internal Server Error
-            Repository -->> PlaceLogic: Persistence failed
-            PlaceLogic -->> Facade: 500 Internal Server Error
-            Facade -->> API: 500 Internal Server Error
-            API -->> User: An error occurred, please try again
-        else Success
-            Database -->> Repository: OK + place_id
-            Repository -->> PlaceLogic: Place saved + place_id
-            PlaceLogic -->> Facade: Return place object
-            Facade -->> API: 201 Created + place info
-            API -->> User: Place successfully created
-        end
-    end
-```
-
-- **Note:** Authentication (JWT verification) usually happens at the API level (or middleware) to protect the Business Logic. The Facade then links the new Place to the authenticated Owner.
-
-### 4.3. Review Submission
-
-This flow illustrates the interaction involving multiple entities (User, Place, Review).
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant API as API (Presentation)
-    participant Facade as Facade
-    participant Logic as Business Logic
-    participant Repository as Repository (Interface)
-    participant Database as Database
-
-    User ->> API: POST /reviews with data
-    API ->> Facade: create_review(data)
-
-    alt Invalid input (missing or bad rating)
-        Facade -->> API: 400 Bad Request
-        API -->> User: Review data invalid
-    else No reservation
-        Facade ->> Logic: validate_reservation(user_id, place_id)
-        Logic ->> Repository: check_reservation(user_id, place_id)
-        Repository ->> Database: SELECT reservation
-        Database -->> Repository: No match
-        Repository -->> Logic: Forbidden
-        Logic -->> Facade: 403 Forbidden
-        Facade -->> API: Review not allowed
-        API -->> User: Must reserve place first
-    else Valid input + reserved
-        Facade ->> Logic: create_review_instance(data)
-        Logic --> Logic: Review(data)
-        Logic ->> Repository: save(review)
-        Repository ->> Database: INSERT review
-        alt Database error
-            Database -->> Repository: 500 Internal Server Error
-            Repository -->> Logic: Persistence failed
-            Logic -->> Facade: 500 Internal Server Error
-            Facade -->> API: 500 Internal Server Error
-            API -->> User: An error occurred, please try again
-        else Success
-            Database -->> Repository: OK + review_id
-            Repository -->> Logic: Review saved + review_id
-            Logic -->> Facade: review object (id, rating, text, date)
-            Facade -->> API: 201 Created
-            API -->> User: Review submitted
-        end
-    end
-```
-
-- **Note:** The Facade acts as the orchestrator. It ensures the `Place` exists and the data is valid before allowing the persistence of the `Review`.
-
-### 4.4. Fetching a List of Places
-
-This flow demonstrates how users search for available properties with optional filters.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant API as API (Presentation)
-    participant Facade as Facade
-    participant BusinessLogic as Business Logic
-    participant Repository as Repository (Interface)
-    participant Database as Database
-
-    User->>API: GET /api/v1/places?filters
-
-    alt Invalid parameters
-        API-->>User: 400 Bad Request
-    else Authentication/Authorization error
-        API-->>User: 401 Unauthorized / 403 Forbidden
-    else Valid request
-        API->>Facade: get_places(filters)
-        Facade->>BusinessLogic: get_places(filters)
-        BusinessLogic->>Repository: find_places(query)
-        Repository->>Database: SELECT * FROM places WHERE ...
-
-        alt Database error
-            Database-->>Repository: SQL Error
-            Repository-->>BusinessLogic: Technical error
-            BusinessLogic-->>Facade: Technical error
-            Facade-->>API: Technical error
-            API-->>User: 500 Internal Server Error
-        else No results found
-            Database-->>Repository: Empty ResultSet
-            Repository-->>BusinessLogic: Empty list
-            BusinessLogic-->>Facade: PlaceCollectionDTO (empty list, metadata)
-            Facade-->>API: PlaceCollectionDTO
-            API-->>User: 200 OK (empty list)
-        else Results found
-            Database-->>Repository: ResultSet
-            Repository-->>BusinessLogic: List of Place objects
-            BusinessLogic-->>Facade: PlaceCollectionDTO (list, metadata)
-            Facade-->>API: PlaceCollectionDTO
-            API-->>User: 200 OK + places data
-        end
-    end
-```
-
-- **Note:** The Business Logic layer transforms filter parameters into database queries through the Repository interface. The system handles three scenarios: database errors (500), no results found (200 with empty list), and successful results (200 with data). The `PlaceCollectionDTO` encapsulates both the list of places and metadata (total count, pagination info, applied filters).
+### Loop
+- Multiple GET requests allowed to list users
 
 ---
 
-## 5. Conclusion
+## 🏠 Place Management
 
-This technical document outlines a robust and modular architecture for HBnB. By strictly adhering to the **3-Layer Architecture** and the **Facade Pattern**, we ensure that:
+**Role:** Create, update, search, delete places; link amenities.
 
-1.  **Scalability:** Components can be updated or replaced (e.g., changing the database) with minimal impact on other layers.
-2.  **Maintainability:** The clear separation of logic makes debugging and feature addition straightforward.
-3.  **Consistency:** The centralized Business Logic layer guarantees that rules are applied uniformly across the application.
+### Nominal Flow
+User → API → BL validates → Repository saves/retrieves → BL returns → API responds
 
-This design serves as the definitive reference for the implementation phase.
+### Alternatives
+- 🚫 Place unavailable
+- ⚠️ Validation fails
+
+### Loop
+- Multiple search queries → returns array of results
+
+---
+
+## 📅 Booking Management
+
+**Role:** Book a place, cancel booking, calculate totals.
+
+### Nominal Flow
+Booking request → API → BL validates → Repository checks availability  
+→ Save booking → Create payment → API responds
+
+### Alternatives
+- 📆 Unavailable → error returned
+
+### Loop
+- Multiple bookings per user
+- Multiple bookings per place
+
+---
+
+## ⭐ Review Management
+
+**Role:** Post, update, or report reviews.
+
+### Nominal Flow
+API receives review → BL checks booking → Repository saves  
+→ BL updates average rating → API responds
+
+### Alternatives
+- 🎫 Invalid booking → error returned
+
+---
+
+## 💳 Payment Management
+
+**Role:** Process payments and refunds.
+
+### Nominal Flow
+API receives payment → BL validates → Repository saves  
+→ BL returns confirmation → API responds
+
+### Alternatives
+- 💰 Refund success
+- 💰 Refund failure
+
+---
+
+## 🧰 Amenity Management
+
+**Role:** Create amenities and link to places.
+
+### Nominal Flow
+API receives amenity → BL validates → Repository saves → API responds
+
+### Relationship
+- Many-to-many between **Place ↔ Amenity**
+- Implemented using a junction table
+
+---
+
+## 🛡️ Admin Management
+
+**Role:** Manage admins, ban users, assign roles.
+
+### Nominal Flow
+Admin request → API → BL checks permissions  
+→ Repository updates DB → API responds
+
+### Alternatives
+- 🔒 Unauthorized → error returned
+
+---
+
+## 💬 Message Management
+
+**Role:** Send/receive messages, track read status.
+
+### Nominal Flow — Sending
+User sends message → API → BL validates → Repository saves  
+→ BL returns → API responds
+
+### Nominal Flow — Retrieving Conversation
+Repository fetch → BL formats → API returns
+
+---
+
+# 🧑‍🏫 Tips
+
+### 🧱 Separation of Responsibilities
+Keep layers strictly separated:
+
+# Layered Backend Architecture Notes
+
+Client → API → Business Logic → Repository → Database
+
+Each layer has a single responsibility.
+
+---
+
+## ✅ Validate First
+
+Never trust user input blindly.  
+Always validate data before touching the database.
+
+---
+
+## 🔀 Think in Alternatives & Loops
+
+Every request has multiple possible outcomes:
+
+- Success path
+- Validation error
+- Permission error
+- Resource not found
+- Loop scenarios (repeated actions)
+
+Design for all of them.
+
+---
+
+## 🔗 Many-to-Many Relationships
+
+Use junction tables:
+
+PlaceAmenity  
+place_id  
+amenity_id  
+
+This prevents duplication and keeps the database consistent.
+
+---
+
+## 🧭 Visualize the Flow
+
+Every backend request follows:
+
+Request → API → Business Logic → Repository → Database → Response
+
+If a bug happens, check the chain step by step.
+
+---
+
+## 🗑️ Soft Deletes
+
+Instead of deleting records permanently:
+
+deleted_at = timestamp
+
+This preserves history for audits, recovery, and debugging.
+
+---
+
+## ✅ Summary
+
+A clean architecture is predictable:
+
+- Each request follows a known path
+- Errors are expected and handled
+- Loops are controlled
+- Relationships are explicit
+- Data history is preserved
+
+This structure scales well and is used in professional backend systems.
